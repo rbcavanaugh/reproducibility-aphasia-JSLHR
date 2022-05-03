@@ -1,0 +1,17 @@
+"participant","condition","phoneme","itemType","phase","session","item","trials","spt2017","response","n_baselines"
+"P5","random","br","tx","treatment",27,"br-3",5,"post",1,11
+"P5","random","br","tx","treatment",27,"br-1",5,"post",1,11
+"P5","random","br","tx","treatment",27,"br-27",5,"post",0,11
+"P5","random","br","tx","treatment",27,"br-6",5,"post",0,11
+"P5","random","br","tx","treatment",27,"br-25",5,"post",1,11
+"P5","random","br","gx","treatment",27,"br-2",3,"post",1,11
+"P5","random","br","gx","treatment",27,"br-9",3,"post",0,11
+"P5","random","br","gx","treatment",27,"br-4",3,"post",0,11
+"P5","random","l","tx","treatment",27,"l-6",5,"post",1,11
+"P5","random","l","tx","treatment",27,"l-5",5,"post",1,11
+"P5","random","l","tx","treatment",27,"l-2",5,"post",1,11
+"P5","random","l","tx","treatment",27,"l-7",5,"post",1,11
+"P5","random","l","tx","treatment",27,"l-4",5,"post",1,11
+"P5","random","l","gx","treatment",27,"l-1",3,"post",0,11
+"P5","random","l","gx","treatment",27,"l-3",3,"post",1,11
+"P5","random","l","gx","treatment",27,"l-8",3,"post",0,11

@@ -1,0 +1,17 @@
+"participant","condition","phoneme","itemType","phase","session","item","trials","spt2017","response","n_baselines"
+"P16","random","br","tx","washout",31,"br-22",5,"fu",1,8
+"P16","random","br","tx","washout",31,"br-23",5,"fu",0,8
+"P16","random","br","tx","washout",31,"br-24",5,"fu",0,8
+"P16","random","br","tx","washout",31,"br-26",5,"fu",0,8
+"P16","random","br","tx","washout",31,"br-29",5,"fu",0,8
+"P16","random","br","gx","washout",31,"br-3",3,"fu",0,8
+"P16","random","br","gx","washout",31,"br-25",3,"fu",0,8
+"P16","random","br","gx","washout",31,"br-28",3,"fu",0,8
+"P16","random","kw","tx","washout",31,"kw-2",5,"fu",1,8
+"P16","random","kw","tx","washout",31,"kw-10",5,"fu",1,8
+"P16","random","kw","tx","washout",31,"kw-11",5,"fu",1,8
+"P16","random","kw","tx","washout",31,"kw-14",5,"fu",1,8
+"P16","random","kw","tx","washout",31,"kw-28",5,"fu",1,8
+"P16","random","kw","gx","washout",31,"kw-3",3,"fu",0,8
+"P16","random","kw","gx","washout",31,"kw-12",3,"fu",0,8
+"P16","random","kw","gx","washout",31,"kw-68",3,"fu",0,8

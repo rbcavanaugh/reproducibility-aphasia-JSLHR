@@ -1,0 +1,17 @@
+"participant","condition","phoneme","itemType","phase","session","item","trials","spt2017","response","n_baselines"
+"P16","blocked","fl","tx","baseline",25,"fl-1",5,"pre",0,14
+"P16","blocked","fl","tx","baseline",25,"fl-4",5,"pre",0,14
+"P16","blocked","fl","tx","baseline",25,"fl-8",5,"pre",0,14
+"P16","blocked","fl","tx","baseline",25,"fl-22",5,"pre",0,14
+"P16","blocked","fl","tx","baseline",25,"fl-33",5,"pre",0,14
+"P16","blocked","fl","gx","baseline",25,"fl-7",3,"pre",0,14
+"P16","blocked","fl","gx","baseline",25,"fl-20",3,"pre",0,14
+"P16","blocked","fl","gx","baseline",25,"fl-34",3,"pre",0,14
+"P16","blocked","sp","tx","baseline",25,"sp-1",5,"pre",0,14
+"P16","blocked","sp","tx","baseline",25,"sp-2",5,"pre",0,14
+"P16","blocked","sp","tx","baseline",25,"sp-4",5,"pre",0,14
+"P16","blocked","sp","tx","baseline",25,"sp-6",5,"pre",0,14
+"P16","blocked","sp","tx","baseline",25,"sp-7",5,"pre",0,14
+"P16","blocked","sp","gx","baseline",25,"sp-3",3,"pre",0,14
+"P16","blocked","sp","gx","baseline",25,"sp-5",3,"pre",0,14
+"P16","blocked","sp","gx","baseline",25,"sp-8",3,"pre",1,14

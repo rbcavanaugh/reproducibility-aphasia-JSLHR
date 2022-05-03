@@ -1,0 +1,17 @@
+"participant","condition","phoneme","itemType","phase","session","item","trials","spt2017","response","n_baselines"
+"P5","blocked","th","tx","maintenance",24,"th-16",5,NA,0,5
+"P5","blocked","th","tx","maintenance",24,"th-4",5,NA,1,5
+"P5","blocked","th","tx","maintenance",24,"th-6",5,NA,1,5
+"P5","blocked","th","tx","maintenance",24,"th-19",5,NA,1,5
+"P5","blocked","th","tx","maintenance",24,"th-9",5,NA,1,5
+"P5","blocked","th","gx","maintenance",24,"th-2",3,NA,0,5
+"P5","blocked","th","gx","maintenance",24,"th-23",3,NA,0,5
+"P5","blocked","th","gx","maintenance",24,"th-17",3,NA,1,5
+"P5","blocked","s","tx","maintenance",24,"s-26",5,NA,0,5
+"P5","blocked","s","tx","maintenance",24,"s-14",5,NA,0,5
+"P5","blocked","s","tx","maintenance",24,"s-15",5,NA,0,5
+"P5","blocked","s","tx","maintenance",24,"s-28",5,NA,0,5
+"P5","blocked","s","tx","maintenance",24,"s-13",5,NA,1,5
+"P5","blocked","s","gx","maintenance",24,"s-30",3,NA,0,5
+"P5","blocked","s","gx","maintenance",24,"s-27",3,NA,0,5
+"P5","blocked","s","gx","maintenance",24,"s-29",3,NA,0,5

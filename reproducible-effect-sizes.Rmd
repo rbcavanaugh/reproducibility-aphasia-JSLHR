@@ -1,0 +1,630 @@
+---
+title             : "Towards reproducibility in small-N treatment research in aphasiology: a tutorialy"
+shorttitle        : "Reproducible Small-N"
+
+author: 
+  - name          : "Robert Cavanaugh"
+    affiliation   : "1"
+    corresponding : yes    
+    email         : "rob.cavanaugh@pitt.edu"
+   # address       : "6073 Forbes Tower Pittsburgh PA 15213"
+  - name          : "Yina Quique"
+    affiliation   : "2"
+  - name          : "Alexander Swiderski"
+    affiliation   : "1"
+  - name          : "Lydia Kalhoff"
+    affiliation   : "3"
+  - name          : "Lauren Terhorst"
+    affiliation   : "1"
+  - name          : "Julie Wambaugh"
+    affiliation   : "3"
+  - name          : "William D. Hula"
+    affiliation   : "4"
+  - name          : "William S. Evans"
+    affiliation   : "1"
+
+affiliation:
+  - id            : "1"
+    institution   : "University of Pittsburgh"
+  - id            : "2"
+    institution   : "Northwestern University"
+  - id            : "3"
+    institution   : "University of Utah"
+  - id            : "4"
+    institution   : "VA Pittsburgh Healthcare System"
+
+abstract: |
+  \noindent Purpose: Small-N studies are the dominant study design supporting evidence-based treatment studies in communication sciences and disorders, and specifically in research on aphasia and related disorders. However, there is little guidance on conducting reproducible analysis of such studies, which has implications for scientific review, rigor, and replication. 
+
+
+  \noindent Methods: This tutorial demonstrates how to implement reproducible analyses of small-N designs by reanalyzing data from Wambaugh et al. (2017), a single-case experimental design study with 20 individuals with post-stroke apraxia of speech and aphasia receiving Sound Production Treatment. A comparison and discussion of the strengths and weaknesses of small-N effect sizes is provided so that researchers can make informed decisions about how to best characterize treatment effects for their own work. 
+
+
+  \noindent Results: Tutorial code demonstrates how to implement the following effect sizes: standardized mean difference, Proportion of Maximal Gain, Tau-U, and mixed-effects models at the individual and group level in the statistical language R. Data and code are publicly available as a resource for students, researchers, and clinicians. 
+
+
+  \noindent Conclusion: This tutorial demonstrates how researchers in aphasia and related disorders can conduct reproducible analysis of small-N studies, the dominant intervention design in the field. We also demonstrate how properties of different approaches to statistical analysis can affect the interpretation and replication of small-N studies. This article may serve as a template for conducting reproducible analyses of the small-N designs common to aphasia and related disorders.
+
+  
+#keywords          : "keywords"
+#wordcount         : "X"
+
+#bibliography      : ["r-references.bib"]
+
+floatsintext      : no
+figurelist        : no
+tablelist         : no
+footnotelist      : no
+linenumbers       : no
+mask              : no
+draft             : no
+
+documentclass     : "apa6"
+classoption       : "doc"
+output :
+  papaja::apa6_pdf:
+    highlight: default
+    keep_tex: false
+  
+header-includes:
+  - \usepackage{setspace}
+  - \AtBeginEnvironment{tablenotes}{\doublespacing}
+  - \usepackage[utf8]{inputenc}
+  - \usepackage{float}
+  - \captionsetup[figure]{labelformat=empty}
+  - \usepackage{lscape}
+  - \usepackage{pdfpages}
+  - \usepackage{graphicx}
+  - \usepackage{multirow}
+  - \usepackage{caption}
+  - \usepackage{tabu}
+
+---
+
+```{r setup, include = FALSE}
+library("papaja")
+library(kableExtra)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup 
+
+## Load packages and functions
+
+```{r}
+library(here)           # for locating files
+library(tidyverse)      # data wrangling
+library(SingleCaseES)   # calculating SMD, Tau-U
+library(lme4)           # frequentist mixed-effects models
+library(emmeans)        # estimating effect sizes from lme4
+library(brms)           # bayesian mixed-effects models
+library(tidybayes)      # estimating effect sizes from brms
+
+# load functions for calculating effect sizes
+source("R/effect-size-functions.R")
+
+# set a seed for reproducibility
+set.seed(42)
+```
+
+## Read in data
+
+\noindent Note that the current setup uses RStudio R projects (https://support.rstudio.com/hc/en-us/articles/200526207-Using-RStudio-Projects). One of the
+features of R projects is that the working directory is automatically set to the project root (the folder with the .Rproj). A discussion of R projects can be found at https://www.tidyverse.org/blog/2017/12/workflow-vs-script/. In this case `here("study-data")` refers to the /study-data folder inside the project. 
+
+
+```{r}
+# create a list of files
+files <- list.files(
+                 here("study-data"), # look in the study-data folder
+                 full.names = TRUE,  # use the full paths of the files
+                 pattern = ".csv",   # only read in .csv files
+                 recursive = TRUE)   # include files within subfolders
+
+# read in the files and combine them together
+# map_df takes a function, in this case read_csv().
+# show_col_types suppresses output sinc we're reading in many files
+df <- files %>%
+  map_dfr(read_csv, show_col_types = FALSE)
+
+```
+
+## Preview the data
+
+```{r}
+glimpse(df)
+```
+
+(ref:table1-caption) Data variables and their description
+
+```{r, echo = FALSE}
+tibble(
+  Variable = colnames(df),
+  Description = c(
+    "de-identified participant ID",
+    "probe schedule (blocked or random)",
+    "target_phoneme",
+    "item condition (treatment or generalization)",
+    "treatment phase",
+    "session number from Wambaugh 2017",
+    "item identifier",
+    "number of items in the list (per phoneme)",
+    "phase used to calcualte effect sizes in Wambaugh et al., 2017",
+    "accuracy of participant response",
+    "Number of baseline sessions"
+  )
+) %>%
+  papaja::apa_table(caption = "(ref:table1-caption)", placement = "h")
+```
+
+# Case example: Participant 10
+
+## Filter data for Participant 10
+
+\noindent Starting from the entire dataset, filter for participant 10, treated items, and
+the blocked condition. Then to calculate session-level data (the number of correct responses per session), 
+group by session, and use the summarize function to calculate the number of correct responses per
+session. The `group_by` function also includes phase and spt2017 because we want to keep
+these variables in the summary data frame, but their addition doesn't affect grouping.
+The .groups argument removes the grouping after summarize.
+
+```{r}
+P10 <- df %>%
+  filter(participant == "P10",
+         itemType == "tx",
+         condition == "blocked") %>%
+  group_by(session, phase, spt2017) %>%
+  summarize(sum_correct = sum(response), .groups = "drop")
+```
+
+## Plot performance over time
+
+\noindent Plotting data from participant (also Figure 1.). First, we select only
+the baseline and treatment phases (ignoring the washout and maintenance phases
+for the purpose of this paper). The we create a dummy variable reflecting whether
+or not the session was included in the SMD/PMG calculations. Finally, the {ggplot2}
+package. A recent primer on {ggplot2} for researchers unfamilar with R can be found
+here: https://doi.org/10.1177/25152459221074654
+
+```{r, fig.width = 5, fig.height = 3, warning = FALSE}
+
+P10 %>%
+  filter(phase == "baseline" | phase == "treatment") %>%
+  mutate(Measure = factor(
+    ifelse(!is.na(spt2017), "include", "exclude"),
+           levels = c("exclude", "include"))) %>%
+  ggplot(aes(x = session, y = sum_correct/20, group = phase)) +
+  geom_point(aes(alpha = Measure), size = 3) + 
+  geom_line(alpha = 0.5) +
+  geom_vline(aes(xintercept = 7), linetype = "dashed") +
+  scale_x_continuous(breaks = seq(0,30,5)) +
+  ylim(0, 1) +
+  scale_alpha_discrete(range = c(0.35, 0.9)) +
+  labs(title = "Participant 10, treated words, blocked condition",
+       caption = "Dark circles represent data points used to calculate
+       the within-case standardized mean difference in Wambaugh et al.,
+       (2017)",
+       y="Percent Correct") +
+  guides(alpha = "none")
+```
+
+## Within-case standardized mean difference
+
+\noindent There are any number of ways to calculate the within case standardized
+mean difference using R code. In this example, we have used the `SMD()` function
+from the established package {SingleCaseES} by James Pustejovsky because it
+includes additional functions that may be of interest to researchers in aphasiology.
+
+\noindent Note that the bias_correct argument is set to `FALSE` to match what is 
+typically done in aphasia research, though aphasia researchers may benefit
+from using the bias correction for small sample sizes as it can reduce
+procedural sensitivities of the within-case standardized mean difference. 
+
+\noindent Additionally, we do not show all information returned by the function, which
+also includes a 95% confidence interval, as it is not clear that this 
+confidence interval applies to the the *d*~BR~ modification of the original 
+within-case standardized mean difference. 
+
+```{r}
+A = P10 %>% filter(spt2017 == "pre") %>% pull(sum_correct)
+B = P10 %>% filter(spt2017 == "post") %>% pull(sum_correct)
+
+SMD(A_data = A,
+    B_data = B,
+    bias_correct = FALSE # not typically used in aphasia research 
+    )$Est
+```
+
+\noindent To calculate *d*~BR~ for all participants and conditions in the Wambaugh et al, (2017) 
+study, we created a custom function which can be found in the R/effect-size-functions.R file.
+
+## Proportion of potential maximal gain
+
+\noindent There is no R package that includes a function to calculate PMG to our knowledge. However, creating such a function is relatively straightforward. A function that calculates PMG similar to the SMD() function from the {SingleCaseES} package might take the following form, with an additional argument for the number of items treated (nitems). The function calculates the mean of the A phase and B phase, and then calculates and returns the PMG value from the same data as *d*~BR~ above.
+
+
+```{r}
+# the function is named PMG and takes 3 arguments:
+# vectors of the a_data and b_data, and 
+# a single number indicating how many items were treated
+PMG <- function(a_data, b_data, nitems){
+  mean_a <- mean(a_data) # calculate mean of a_data
+  mean_b <- mean(b_data) # calculate mean of b_data
+  pmg <- (mean_b-mean_a)/(nitems-mean_a) # calculate PMG
+  return(pmg) # return the PMG value. 
+}
+
+PMG(a_data = A, b_data = B, nitems = 20)
+
+```
+
+\noindent To calculate PMG for all participants and conditions in the Wambaugh et al, (2017) 
+study, we created a custom function which can be found in the R/effect-size-functions.R file.
+
+## Tau-U
+
+\noindent The Tau-U family of effect sizes (and a number of other non-overlap measures) can
+be calculated using the {SingleCaseES} package. In this case, we use all data 
+summarized in the P10 dataframe (and not just the data used to calculate *d*~BR~).
+
+\noindent First, we estimate the trend line during the baseline phase, which can be generated
+by creating a simple linear model using the `lm()` function. The model includes
+the number of correct responses as the dependent variable and the session number
+as the independent variable. The session coefficient reflects the slope during 
+the baseline phase. The `coef()` function simple extracts the model coefficients.
+
+```{r}
+P10 %>% 
+    filter(phase == "baseline") %>%
+    lm(data = ., sum_correct~session) %>% coef()
+```
+
+\noindent The `Tau()` and `Tau_U()` functions take the same data structure as the `SMD()`
+and `PMG()` functions above. I
+
+\noindent Using the conservative benchmark of 0.33 recommended by Lee and Cherney (2018),
+we would calculate Tau~A VS. B~ as the slope of the baseline phase
+is only 0.2. To calculate Tau-U~A VS. B~, we can use the `Tau()` function.
+
+```{r}
+A = P10 %>% filter(phase == "baseline") %>% pull(sum_correct)
+B = P10 %>% filter(phase == "treatment") %>% pull(sum_correct)
+
+Tau(A_data = A, B_data = B)
+```
+
+\noindent However, if we had elected to correct for baseline trends and use Tau-U~A VS. B - TREND A~, we can use the similar `Tau_U()` function. 
+
+```{r}
+Tau_U(A_data = A, B_data = B)
+```
+
+## Mixed-effects model-based effect sizes
+
+\noindent The mixed-effects model example for participant 10 uses item-level data, 
+so we need to create a new dataframe for this model. The model formula is based on
+a structure from Huitema & McKean (2000). We recommend the reader read Huitema & McKean
+for a clear description and justifcation for this model structure. 
+
+$$Y_{t} = \beta_{0} + \beta_{1}T_{t} + \beta_{2}D_{t} + \beta_{3}[T_{t}-(n_{1}+1)]D_{t} + \epsilon _{t}$$
+
+\noindent After selecting data from participant 10, the coefficients are
+created by:
+
+- setting `baseline_slope` equal to the session variable
+- `level_change` is a dummy variable, 0 during baseline and 1 during treatment
+- `slope_change` is created by subtracting the number of baselines plus 2 from
+the baseline slope value, and then multiplying the result with the `level_change`
+variable. Typically, if probing every session, the formula calls for subtracting
+the number of baselines plus 1. However, because Wambaugh et al., (2017) used
+intermittent probing schedules, and probed every other treatment session starting
+at the second, we need to add 2 to the number of baselines to ensure that
+the slope change variable starts at 0 on the first recorded treatment probe. 
+
+```{r}
+P10 <- df %>%
+  filter(participant == "P10",
+         condition == "blocked",
+         itemType == "tx",
+         phase == "baseline" | phase == "treatment") %>%
+  mutate(baseline_slope = session,
+         level_change = ifelse(phase == "baseline", 0, 1),
+         slope_change = (baseline_slope - (6+2))*level_change,
+         level_change = as.factor(level_change))
+```
+
+\noindent Figure 2. visualizes each parameter in this model structure. The code
+can be found in the .Rmd file, and is omitted from the pdf due to its length. 
+
+```{r, echo = FALSE, fig.width = 5, fig.height = 3}
+
+P10_itts = df %>%
+  filter(participant == "P10",
+         itemType == "tx",
+         condition == "blocked") %>%
+  group_by(session, phase, spt2017) %>%
+  summarize(sum_correct = sum(response), .groups = "drop")
+
+pred_dat = P10_itts %>% filter(phase == "baseline" | phase == "treatment") %>%
+  mutate(phase = ifelse(phase == "baseline", 0, 1),
+         slope_change = (session-8)*phase)
+
+mod = glm(cbind(sum_correct, 20-sum_correct) ~ session + phase + slope_change, 
+            family = binomial,
+          data = pred_dat
+            )
+
+pred_dat$preds = predict(mod, type = "response")
+
+new_dat = pred_dat %>%
+  mutate(slope_change = 0)
+
+new_dat$preds = predict(mod,newdata = new_dat, type = "response")
+
+new_dat2 = pred_dat %>%
+  mutate(phase = 0, slope_change =0)
+
+new_dat2$preds = predict(mod, newdata = new_dat2, type = "response")
+
+new_dat2 = new_dat2 %>%
+  filter(session<9)
+
+P10_itts %>%
+  filter(phase == "baseline" | phase == "treatment") %>%
+  ggplot(aes(x = session, y = sum_correct/20, group = phase)) +
+  geom_point(size = 4) + 
+  geom_line(alpha = 0.25) +
+  geom_vline(aes(xintercept = 7), linetype = "dashed") +
+  scale_x_continuous(breaks = seq(0,30,5)) +
+  #ylim(0, 20) +
+  labs(title = "Participant 10, treated words, blocked condition",
+       y="Percent Correct") +
+  guides(alpha = "none") +
+  geom_line(inherit.aes = FALSE, data = pred_dat, aes(x=session, y = preds, group = phase), color = "darkred") + 
+  geom_line(inherit.aes = FALSE, data = new_dat, aes(x=session, y = preds, group = phase), color = "darkred", alpha = 0.3, linetype = "dashed")+
+    geom_line(inherit.aes = FALSE, data = new_dat2, aes(x=session, y = preds, group = phase), color = "darkred", alpha = 0.3, linetype = "dashed")+
+  #geom_segment(aes(x = 8, y = 0.19, xend = 8, yend = 0.5)) +
+  ggbrace::geom_brace(aes(c(8,9), c(0.19, 0.5), label = "level change"), inherit.data=F, rotate = 90, labelsize = 4, color = "darkred") +
+   annotate(color = "darkred",
+    geom = "curve", x = 4, y = .35, xend = 2, yend = .15, 
+    curvature = .3, arrow = arrow(length = unit(2, "mm"))
+  ) +
+  annotate(geom = "text", x = 1, y = .375, label = "baseline slope",
+           hjust = "left", color = "darkred") +
+   annotate(color = "darkred",
+    geom = "curve", x = 4, y = .35, xend = 2, yend = .15, 
+    curvature = .3, arrow = arrow(length = unit(2, "mm"))
+  ) +
+  annotate(geom = "text", x = 1, y = .375, label = "baseline slope",
+           hjust = "left", color = "darkred") +
+  annotate(color = "darkred",
+    geom = "curve", x = 15, y = .65, xend = 15, yend = .76, 
+    curvature = .3, arrow = arrow(length = unit(2, "mm"), ends = "both")
+  ) +
+  annotate(color = "darkred",
+    geom = "text", x = 15.75, y = .77, hjust = "left",
+    label = "slope change"
+  ) 
+
+```
+
+\noindent The following shows how we arrived at the final model for P10
+
+1. First, we fit the maximal random effects structure. However, the model did not converge. 
+
+```{r}
+mod1 <- 
+    glmer(response ~ baseline_slope + level_change + slope_change + 
+            (1 + baseline_slope + level_change + slope_change | item),
+          data = P10,
+          family = binomial)
+```
+
+2. Second, we tried specifying a different optimizer, following recommendations that
+can be found at https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#convergence-warnings.
+
+\noindent Because the model structure is pre-determined, we tried a different optimizer, which
+we have had more success with in past studies. This removed the convergence warning.
+
+```{r}
+mod1 <- 
+    glmer(response ~ baseline_slope + level_change + slope_change + 
+            (1 + baseline_slope + level_change + slope_change | item),
+          data = P10,
+          family = binomial,
+          control = glmerControl(optimizer="bobyqa"))
+```
+
+\noindent We can now examine the model summary:
+
+```{r}
+summary(mod1)
+```
+
+\noindent We note that in this case, further reducing the random effects structure often
+returns a significant result for the level_change parameter, demonstrating how our
+choice of random effect structure can influence the statistical significance
+of model parameters. 
+
+\noindent Calculating an overall effect size for this participant requires contrasting
+performance either at the end of treatment with and without the level change and slope
+change parameters, or contrasting performance at the end of treatment with performance
+at the end of baseline. The former option assumes that any baseline trend would have continued
+throughout the treatment phase in the absence of treatment, is typically more conservative. 
+
+\noindent While there is a small, empirical baseline slope in this data, it may be reasonable to
+consider that this slope is largely driven by lower performance on the second probe session, and
+that performance in baseline sessions 3-6 are stable, and therefore estimate the 
+difference in performance from the end of baseline to the end of treatment. Criteria for such
+decisions should ideally be made a-priori if possible. 
+
+1. First, we generate the marginal means for each combination of baseline slope,
+level change, and slope change. 
+
+```{r}
+# setup marginal means
+# 
+marginal_means = emmeans(
+                       object = mod1,
+                       specs = c("baseline_slope", "level_change", "slope_change"),
+                       at = list(
+                         baseline_slope = c(7, 26),
+                         level_change = c("0", "1"),
+                         slope_change = c(0, 19)
+                       )
+                     ) 
+
+marginal_means
+```
+
+2. This returns a table of all possible comparisons, and we are only interested in
+contrasting the first row (beginning of treatment) with the last row (end of treatment). 
+After selecting these two rows, we can then contrast their estimates. 
+
+```{r}
+# code to select first and last rows
+# The 1 indicates that the row should be selected
+A = c(1, 0, 0, 0, 0, 0, 0, 0)
+B = c(0, 0, 0, 0, 0, 0, 0, 1)
+
+# contrast the marginal means
+# infer argument returns a confidence interval and p value if
+# both are set to TRUE.
+contrast(marginal_means, 
+     method = list("Unadjusted effect size" = B-A),
+     infer = c(TRUE, TRUE))
+```
+
+\noindent We could also make the more conservative assumption that any baseline trend
+continues by choosing the second row where baseline slope is set to the last 
+treatment session.
+
+```{r}
+# code to select first and last rows
+# The 1 indicates that the row should be selected
+A = c(0, 1, 0, 0, 0, 0, 0, 0)
+B = c(0, 0, 0, 0, 0, 0, 0, 1)
+
+# contrast the marginal means
+# infer argument returns a confidence interval and p value if
+# both are set to TRUE.
+contrast(marginal_means, 
+     method = list("Unadjusted effect size" = B-A),
+     infer = c(TRUE, TRUE))
+```
+
+\noindent Notice that there is much greater uncertainty in this contrast, and as a result
+the p-value is no longer significant. 
+
+### Group-level model
+
+\noindent We can extend this individual model to all participants, still
+focusing on treated items in the blocked condition. First, we create a new dataframe
+that includes all participants and then repeat the model
+
+```{r}
+df_glmm <- df %>%
+  filter(phase == "baseline" | phase == "treatment",
+         condition == "blocked",
+         itemType == "tx") %>%
+  mutate(baseline_slope = session,
+         level_change = ifelse(phase == "baseline", 0, 1),
+         slope_change = (baseline_slope - (n_baselines+2))*level_change,
+         level_change = as.factor(level_change))
+```
+
+\noindent Then we can start again with a relatively maximal random effect structures,
+noting that we could also include random slopes for items. However, it is unlikely 
+that such a model structure could be supported by the data. In this case we have
+chosen to include the most theoretically important random effects (Matsucheck, 2018)
+that we expect to be supported by the data.
+
+\noindent The model takes a little longer to run, but returns a convergence warning
+
+```{r}
+mod2 <-
+ glmer(response ~ baseline_slope + level_change + slope_change + 
+       (1 + baseline_slope + level_change + slope_change | participant) +
+       (1|item),
+           data = df_glmm,
+           family = binomial)
+```
+
+\noindent Again, we change the optimizer. 
+
+```{r}
+mod2 <-
+ glmer(response ~ baseline_slope + level_change + slope_change + 
+       (1 + baseline_slope + level_change + slope_change | participant) +
+       (1|item),
+           data = df_glmm,
+           family = binomial,
+       control = glmerControl(optimizer = "bobyqa"))
+```
+
+\noindent Since the model appears to have converged, we can examine the model results
+
+```{r}
+summary(mod2)
+```
+
+\noindent The summary table shows us there there are statistically reliable effects
+for all three parameters: a small but reliable trend at baseline, a fairly substantial
+level change on average, and an increase in slope from baseline that is slightly more
+than double the initial average trend. Additionally, performance at baseline
+is predicted to be low, just 3%. We also note that there there is much more 
+variation in the level change paramter between participants relative to the
+baseline slope and slope change parameters. Finally, the correlation of fixed effects
+shows a positive association between individuals baseline trend and their level change,
+but a negative association between individuals baseline trend and slope change and level change. 
+
+\noindent We can calculate an overall effect size using the same approach as the individual
+model. In this case, we assume the median number of baseline sessions (11) and treatment 
+sessions (20)
+
+```{r}
+# setup marginal means
+# 
+marginal_means = emmeans(
+                       object = mod2,
+                       specs = c("baseline_slope", "level_change", "slope_change"),
+                       at = list(
+                         baseline_slope = c(11, 31),
+                         level_change = c("0", "1"),
+                         slope_change = c(0, 20)
+                       )
+                     ) 
+
+marginal_means
+```
+
+\noindent Because the baseline trend, on average, was statistically reliable, 
+we calculated an overall effect size assuming that it would have continued in
+the absense of treatment. 
+
+```{r}
+# code to select first and last rows
+# The 1 indicates that the row should be selected
+A = c(0, 1, 0, 0, 0, 0, 0, 0)
+B = c(0, 0, 0, 0, 0, 0, 0, 1)
+
+# contrast the marginal means
+# infer argument returns a confidence interval and p value if
+# both are set to TRUE.
+contrast(marginal_means, 
+     method = list("Unadjusted effect size" = B-A),
+     infer = c(TRUE, TRUE))
+```
+
+\noindent This results in a statistically reliable group
+effect size of 2.7 logits. Given that the group model suggests a starting
+place of only around 3%, this indicates a gain of about 29 percentage points on average
+can be attributed to the level and slope changes. we can calculate this
+by running `plogis(-3.44 + 2.68)-plogis(3.44)`. However, we're not aware of a
+straightforward method of estimating individual effect sizes and confidence intervals
+using the frequentist approach. 
+
+
+
+
+

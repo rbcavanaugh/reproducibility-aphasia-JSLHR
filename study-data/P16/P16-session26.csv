@@ -1,0 +1,17 @@
+"participant","condition","phoneme","itemType","phase","session","item","trials","spt2017","response","n_baselines"
+"P16","random","br","tx","treatment",26,"br-22",5,"post",1,8
+"P16","random","br","tx","treatment",26,"br-23",5,"post",1,8
+"P16","random","br","tx","treatment",26,"br-24",5,"post",1,8
+"P16","random","br","tx","treatment",26,"br-26",5,"post",1,8
+"P16","random","br","tx","treatment",26,"br-29",5,"post",1,8
+"P16","random","br","gx","treatment",26,"br-3",3,"post",0,8
+"P16","random","br","gx","treatment",26,"br-25",3,"post",0,8
+"P16","random","br","gx","treatment",26,"br-28",3,"post",0,8
+"P16","random","kw","tx","treatment",26,"kw-2",5,"post",1,8
+"P16","random","kw","tx","treatment",26,"kw-10",5,"post",1,8
+"P16","random","kw","tx","treatment",26,"kw-11",5,"post",1,8
+"P16","random","kw","tx","treatment",26,"kw-14",5,"post",1,8
+"P16","random","kw","tx","treatment",26,"kw-28",5,"post",1,8
+"P16","random","kw","gx","treatment",26,"kw-3",3,"post",0,8
+"P16","random","kw","gx","treatment",26,"kw-12",3,"post",0,8
+"P16","random","kw","gx","treatment",26,"kw-68",3,"post",0,8

@@ -1,0 +1,17 @@
+"participant","condition","phoneme","itemType","phase","session","item","trials","spt2017","response","n_baselines"
+"P6","random","gl","tx","treatment",51,"gl-9",5,"post",1,16
+"P6","random","gl","tx","treatment",51,"gl-11",5,"post",1,16
+"P6","random","gl","tx","treatment",51,"gl-36",5,"post",1,16
+"P6","random","gl","tx","treatment",51,"gl-43",5,"post",0,16
+"P6","random","gl","tx","treatment",51,"gl-50",5,"post",1,16
+"P6","random","gl","gx","treatment",51,"gl-1",3,"post",0,16
+"P6","random","gl","gx","treatment",51,"gl-30",3,"post",1,16
+"P6","random","gl","gx","treatment",51,"gl-55",3,"post",0,16
+"P6","random","th","tx","treatment",51,"th-7",5,"post",1,16
+"P6","random","th","tx","treatment",51,"th-9",5,"post",1,16
+"P6","random","th","tx","treatment",51,"th-16",5,"post",1,16
+"P6","random","th","tx","treatment",51,"th-44",5,"post",1,16
+"P6","random","th","tx","treatment",51,"th-47",5,"post",1,16
+"P6","random","th","gx","treatment",51,"th-19",3,"post",1,16
+"P6","random","th","gx","treatment",51,"th-40",3,"post",1,16
+"P6","random","th","gx","treatment",51,"th-4",3,"post",0,16

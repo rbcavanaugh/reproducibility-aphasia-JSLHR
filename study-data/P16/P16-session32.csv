@@ -1,0 +1,17 @@
+"participant","condition","phoneme","itemType","phase","session","item","trials","spt2017","response","n_baselines"
+"P16","blocked","fl","tx","treatment",32,"fl-1",5,NA,0,14
+"P16","blocked","fl","tx","treatment",32,"fl-4",5,NA,0,14
+"P16","blocked","fl","tx","treatment",32,"fl-8",5,NA,1,14
+"P16","blocked","fl","tx","treatment",32,"fl-22",5,NA,0,14
+"P16","blocked","fl","tx","treatment",32,"fl-33",5,NA,0,14
+"P16","blocked","fl","gx","treatment",32,"fl-7",3,NA,0,14
+"P16","blocked","fl","gx","treatment",32,"fl-20",3,NA,0,14
+"P16","blocked","fl","gx","treatment",32,"fl-34",3,NA,0,14
+"P16","blocked","sp","tx","treatment",32,"sp-1",5,NA,0,14
+"P16","blocked","sp","tx","treatment",32,"sp-2",5,NA,0,14
+"P16","blocked","sp","tx","treatment",32,"sp-4",5,NA,0,14
+"P16","blocked","sp","tx","treatment",32,"sp-6",5,NA,0,14
+"P16","blocked","sp","tx","treatment",32,"sp-7",5,NA,0,14
+"P16","blocked","sp","gx","treatment",32,"sp-3",3,NA,0,14
+"P16","blocked","sp","gx","treatment",32,"sp-5",3,NA,0,14
+"P16","blocked","sp","gx","treatment",32,"sp-8",3,NA,0,14
