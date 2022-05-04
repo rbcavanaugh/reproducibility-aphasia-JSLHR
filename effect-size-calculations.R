@@ -44,9 +44,9 @@ df <- files %>%
 
 
 df_smd = df %>%
-  filter(BR != "exclude") %>%
+  filter(!is.na(spt2017)) %>%
   group_by(participant, phase, condition, itemType, session,
-           BR, trials, phoneme) %>%
+           spt2017, trials, phoneme) %>%
   summarize(correct = sum(response),
             trials = unique(trials)) %>%
   ungroup() %>%

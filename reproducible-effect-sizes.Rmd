@@ -99,9 +99,7 @@ library(lme4)           # frequentist mixed-effects models
 library(emmeans)        # estimating effect sizes from lme4
 library(brms)           # bayesian mixed-effects models
 library(tidybayes)      # estimating effect sizes from brms
-
-# load functions for calculating effect sizes
-source("R/effect-size-functions.R")
+library(ggdist)         # Visualizing posterior distributions
 
 # set a seed for reproducibility
 set.seed(42)
@@ -132,7 +130,7 @@ df <- files %>%
 ## Preview the data
 
 ```{r}
-glimpse(df)
+head(df)
 ```
 
 (ref:table1-caption) Data variables and their description
@@ -276,7 +274,8 @@ the baseline phase. The `coef()` function simple extracts the model coefficients
 ```{r}
 P10 %>% 
     filter(phase == "baseline") %>%
-    lm(data = ., sum_correct~session) %>% coef()
+    lm(data = ., sum_correct~session) %>%
+    coef()
 ```
 
 \noindent The `Tau()` and `Tau_U()` functions take the same data structure as the `SMD()`
@@ -624,7 +623,103 @@ by running `plogis(-3.44 + 2.68)-plogis(3.44)`. However, we're not aware of a
 straightforward method of estimating individual effect sizes and confidence intervals
 using the frequentist approach. 
 
+## Bayesian Mixed effects models
+
+\noindent Bayesian mixed-effects models can be used in the same fashion as model 2 above to obtain both group and individual effect size estimates. First, a group-level model is estimated. 
+
+```{r}
+mod3 <-
+ brm(response ~ 0 + Intercept + 
+     baseline_slope + level_change + slope_change + 
+     (1 + baseline_slope + level_change + slope_change | participant) +
+     (1|item),
+             data = df_glmm,
+             family = bernoulli(),
+             iter = 3000,
+             warmup = 1000,
+             chains = 4,
+             seed = 42,
+             prior = c(
+               prior(normal(-1, 2), class = b, coef = Intercept),
+               prior(normal(0, 2.5), class = b)
+             ),
+             # extra arguments, see rmd file
+             cores = 4,
+             file = "models/group_brm",
+             file_refit = "on_change")
+```
+
+\noindent We can check several aspects of model fit and convergence. 
+
+1. Check that the chains have converged. They should look like "hairy catepillars" with no discernable patterns. 
+
+```{r}
+brms::mcmc_plot(mod3, type = "trace")
+```
+
+2. Check that the model can successfully re-estimate the data. The dark blue line (observed data) should be centered in the light blue area (model predictions). 
+
+```{r}
+bayesplot::ppc_check(mod3, ndraws = 200)
+```
+
+3. Rhat statistic should be < 1.05, ideally < 1.01
+
+```{r}
+max(rhat(mod3))
+```
+
+
+\noindent We can preview the model results using `summary()` again. Notably, the model estimates are largely similar to the frequentist model. 
+
+```{r}
+summary(mod3)
+```
+
+```{r}
+df_contrasts <- mod3$data %>%
+    group_by(level_change, participant) %>% 
+    mutate(last_session = max(baseline_slope)) %>%
+    filter(baseline_slope == last_session) %>%
+    select(-response) %>%
+    distinct()
+
+es_logit = df_contrasts %>%
+    add_linpred_draws(mod3) %>%
+    ungroup() %>%
+    mutate(timepoint = ifelse(level_change == 0, "entry", "exit")) %>%
+    select(timepoint, item, .draw, .linpred, participant) %>%
+    pivot_wider(names_from = "timepoint", values_from = .linpred) %>%
+    mutate(ES = exit-entry) %>%
+    group_by(participant) %>%
+    point_interval(ES) 
+```
+
+Examine the results:
+
+```{r}
+head(es_logit, 20)
+```
+```{r}
+session_info()
+```
 
 
 
+
+
+```{r}
+y = mod3$data$response
+yrep = posterior_predict(mod3, ndraws = 500)
+ppc_stat(y, yrep, stat="mean")
+ppc_stat(y, yrep, stat = "sd") 
+
+
+y = mod3$data$response
+yrep = posterior_predict(mod3)
+ppc_stat(y, yrep, stat = "sd")
+mean(apply(yrep, 1, mean) > mean(y))
+mean(apply(yrep, 1, sd) > sd(y))
+mean(apply(yrep, 1, e1071::kurtosis) > e1071::kurtosis(y))
+```
 
