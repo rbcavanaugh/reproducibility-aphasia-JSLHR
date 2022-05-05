@@ -29,3 +29,13 @@ ft2 <- flextable(head(df, 5))
 ft2 <- theme_apa(ft2)
 
 save_as_image(ft2, path = here("table1.png"))
+
+
+
+ft3 = flextable(P10 %>%
+  select(phase, baseline_slope, level_change, slope_change) %>%
+  distinct() %>%
+  arrange(baseline_slope)
+)
+
+save_as_image(ft3, path = here("table3.png"))

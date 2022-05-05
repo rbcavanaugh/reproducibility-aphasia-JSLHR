@@ -1,91 +1,14 @@
 ---
-title             : "Towards reproducibility in small-N treatment research in aphasiology: a tutorialy"
-shorttitle        : "Reproducible Small-N"
-
-author: 
-  - name          : "Robert Cavanaugh"
-    affiliation   : "1"
-    corresponding : yes    
-    email         : "rob.cavanaugh@pitt.edu"
-   # address       : "6073 Forbes Tower Pittsburgh PA 15213"
-  - name          : "Yina Quique"
-    affiliation   : "2"
-  - name          : "Alexander Swiderski"
-    affiliation   : "1"
-  - name          : "Lydia Kalhoff"
-    affiliation   : "3"
-  - name          : "Lauren Terhorst"
-    affiliation   : "1"
-  - name          : "Julie Wambaugh"
-    affiliation   : "3"
-  - name          : "William D. Hula"
-    affiliation   : "4"
-  - name          : "William S. Evans"
-    affiliation   : "1"
-
-affiliation:
-  - id            : "1"
-    institution   : "University of Pittsburgh"
-  - id            : "2"
-    institution   : "Northwestern University"
-  - id            : "3"
-    institution   : "University of Utah"
-  - id            : "4"
-    institution   : "VA Pittsburgh Healthcare System"
-
-abstract: |
-  \noindent Purpose: Small-N studies are the dominant study design supporting evidence-based treatment studies in communication sciences and disorders, and specifically in research on aphasia and related disorders. However, there is little guidance on conducting reproducible analysis of such studies, which has implications for scientific review, rigor, and replication. 
-
-
-  \noindent Methods: This tutorial demonstrates how to implement reproducible analyses of small-N designs by reanalyzing data from Wambaugh et al. (2017), a single-case experimental design study with 20 individuals with post-stroke apraxia of speech and aphasia receiving Sound Production Treatment. A comparison and discussion of the strengths and weaknesses of small-N effect sizes is provided so that researchers can make informed decisions about how to best characterize treatment effects for their own work. 
-
-
-  \noindent Results: Tutorial code demonstrates how to implement the following effect sizes: standardized mean difference, Proportion of Maximal Gain, Tau-U, and mixed-effects models at the individual and group level in the statistical language R. Data and code are publicly available as a resource for students, researchers, and clinicians. 
-
-
-  \noindent Conclusion: This tutorial demonstrates how researchers in aphasia and related disorders can conduct reproducible analysis of small-N studies, the dominant intervention design in the field. We also demonstrate how properties of different approaches to statistical analysis can affect the interpretation and replication of small-N studies. This article may serve as a template for conducting reproducible analyses of the small-N designs common to aphasia and related disorders.
-
-  
-#keywords          : "keywords"
-#wordcount         : "X"
-
-#bibliography      : ["r-references.bib"]
-
-floatsintext      : no
-figurelist        : no
-tablelist         : no
-footnotelist      : no
-linenumbers       : no
-mask              : no
-draft             : no
-
-documentclass     : "apa6"
-classoption       : "doc"
-output :
-  papaja::apa6_pdf:
-    highlight: default
-    keep_tex: false
-  
-header-includes:
-  - \usepackage{setspace}
-  - \AtBeginEnvironment{tablenotes}{\doublespacing}
-  - \usepackage[utf8]{inputenc}
-  - \usepackage{float}
-  - \captionsetup[figure]{labelformat=empty}
-  - \usepackage{lscape}
-  - \usepackage{pdfpages}
-  - \usepackage{graphicx}
-  - \usepackage{multirow}
-  - \usepackage{caption}
-  - \usepackage{tabu}
-
+title: "Towards reproducibility in small-N treatment research in aphasiology: a tutorialy"
+output : pdf_document
 ---
 
 ```{r setup, include = FALSE}
 library("papaja")
 library(kableExtra)
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
+
 # Introduction
 
 This document details the code batch calculate effect sizes.  
@@ -140,30 +63,27 @@ df <- files %>%
 
 ```{r}
 df_smd = df %>%
-  filter(!is.na(spt2017)) %>%
+  filter(spt2017 == "pre" | spt2017 == "post" ) %>%
   group_by(participant, phase, condition, itemType, session,
            spt2017, trials, phoneme) %>%
   summarize(correct = sum(response),
-            trials = unique(trials)) %>%
-  ungroup() %>%
-  drop_na(itemType) %>%
+            trials = unique(trials), .groups = "drop") %>%
   nest_by(participant, condition, itemType) %>%
-  summarize(SMD_br(data))
+  summarize(SMD_br(data), .groups = "drop")
 ```
 
 ## PMG
 
 ```{r}
 df_pmg = df %>%
-  filter(!is.na(spt2017)) %>%
+  filter(spt2017 == "pre" | spt2017 == "post" ) %>%
   group_by(participant, phase, condition, itemType, session,
            spt2017, trials) %>%
   summarize(correct = sum(response),
-            trials = unique(trials)*2) %>%
-  drop_na(itemType) %>%
+            trials = unique(trials)*2, .groups = "drop") %>%
   group_by(participant, condition, itemType) %>%
   summarize(PMG(outcome = correct, phase = spt2017, nitems = trials,
-                bl_phase = "pre", tx_phase = "post"))
+                bl_phase = "pre", tx_phase = "post"), .groups = "drop")
 ```
 
 ## Tau-U
@@ -172,11 +92,11 @@ df_pmg = df %>%
 df_tau = df %>%
   filter(phase == "baseline" | phase == "treatment") %>%
   group_by(participant, phase, condition, itemType, session) %>%
-  summarize(correct = sum(response)) %>%
+  summarize(correct = sum(response), .groups = "drop") %>%
   group_by(participant, condition, itemType) %>%
   summarize(Tau_custom(outcome = correct, phase = phase, 
                        bl_phase = "baseline", tx_phase = "treatment",
-                       session = session))
+                       session = session), .groups = "drop")
 ```
 
 ## Bayesian Mixed-effects models
@@ -191,6 +111,9 @@ df_itts_group = df %>%
          slope_change = (session - (n_baselines+2))*level_change) %>%
   select(response, participant, condition, itemType, phase,
          phoneme, item, baseline_slope, level_change, slope_change) 
+```
+
+```{r, include = FALSE}
 
 # df_itts_group = df %>%
 #   filter(phase == "baseline" | phase == "treatment") %>%
@@ -206,6 +129,7 @@ df_itts_group = df %>%
 #             trials = sum(obs)) 
 ```
 
+
 ### Blocked Treated
 
 ```{r}
@@ -214,7 +138,8 @@ df_itts_group = df %>%
     response ~ 0 + Intercept + baseline_slope + level_change + slope_change + 
                (1 + baseline_slope + level_change + slope_change | participant) +
                (1| item),
-             data = df_itts_group %>% filter(condition == "blocked", itemType == "tx"),
+             data = df_itts_group %>% filter(condition == "blocked",
+                                             itemType == "tx"),
              family = bernoulli(),
              iter = 3000,
              warmup = 1000,
@@ -223,7 +148,7 @@ df_itts_group = df %>%
                prior(normal(-1, 2.5), class = b, coef = Intercept),
                prior(normal(0, 2.5), class = b)
              ),
-    control = list(adapt_delta = 0.9),
+             control = list(adapt_delta = 0.9),
              seed = 42,
              file = "models/mod_tx_bl",
              file_refit = "on_change"
@@ -238,7 +163,8 @@ df_itts_group = df %>%
     response ~ 0 + Intercept + baseline_slope + level_change + slope_change + 
                (1 + baseline_slope + level_change + slope_change | participant) +
                (1| item),
-                   data = df_itts_group %>% filter(condition == "blocked", itemType == "gx"),
+                   data = df_itts_group %>% filter(condition == "blocked",
+                                                   itemType == "gx"),
                    family = bernoulli(),
                    iter = 3000,
                    warmup = 1000,
@@ -262,7 +188,8 @@ df_itts_group = df %>%
     response ~ 0 + Intercept + baseline_slope + level_change + slope_change + 
                (1 + baseline_slope + level_change + slope_change | participant) +
                (1| item),
-                   data = df_itts_group %>% filter(condition == "random", itemType == "tx"),
+                   data = df_itts_group %>% filter(condition == "random",
+                                                   itemType == "tx"),
                    family = bernoulli(),
                    iter = 3000,
                    warmup = 1000,
@@ -272,7 +199,7 @@ df_itts_group = df %>%
                      prior(normal(0, 2.5), class = b)
                    ),
                    seed = 42,
-    control = list(adapt_delta = 0.85),
+                   control = list(adapt_delta = 0.85),
                    file = "models/mod_tx_ra",
                    file_refit = "on_change"
   )
@@ -286,7 +213,8 @@ df_itts_group = df %>%
     response ~ 0 + Intercept + baseline_slope + level_change + slope_change + 
                (1 + baseline_slope + level_change + slope_change | participant) +
                (1| item),
-                   data = df_itts_group %>% filter(condition == "random", itemType == "gx"),
+                   data = df_itts_group %>% filter(condition == "random",
+                                                   itemType == "gx"),
                    family = bernoulli(),
                    iter = 3000,
                    warmup = 1000,
@@ -303,15 +231,13 @@ df_itts_group = df %>%
   
 ```
 
-### Calculate Effect sizes
+# Pull the effect sizes together and plot
 
 ```{r}
-
 es_tx_bl = getES(mod_tx_bl, "tx", "blocked")
 es_tx_ra = getES(mod_tx_ra, "tx", "random")
 es_gx_bl = getES(mod_gx_bl, "gx", "blocked")
 es_gx_ra = getES(mod_gx_ra, "gx", "random")
-
 
 smd = 
   df_smd %>%
@@ -338,11 +264,37 @@ es = smd %>%
   select(-raw_change)
 ```
 
-## Basic plot
+## Plot comparisons
 
-```{r}
+```{r, warning = FALSE}
 GGally::ggpairs(es,
                 columns = 4:8,
                 mapping = aes(color = itemType))
 ```
+
+
+```{r, include = FALSE}
+# 
+#   es %>% ungroup() %>%
+#   select(3:8) %>%
+#   mutate(itemType = factor(
+#     ifelse(itemType == "gx", "Generalization", "Treated"),
+#     levels = c("Treated", "Generalization"))) %>%
+#   gtsummary::tbl_summary(by="itemType",
+#               missing_text = "N/A",
+#               statistic = list(gtsummary::all_continuous() ~ "{median} ({min}, {max})"))
+```
+
+
+```{r, include = FALSE}
+# stats = es %>% 
+#   ungroup() %>%
+#   select(3:8) %>%
+#   group_by(itemType) %>%
+#   report::report() %>%
+#   as.data.frame()
+#   
+# stats
+```
+
 

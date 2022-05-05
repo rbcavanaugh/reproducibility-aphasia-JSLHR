@@ -1,91 +1,13 @@
 ---
-title             : "Towards reproducibility in small-N treatment research in aphasiology: a tutorialy"
-shorttitle        : "Reproducible Small-N"
-
-author: 
-  - name          : "Robert Cavanaugh"
-    affiliation   : "1"
-    corresponding : yes    
-    email         : "rob.cavanaugh@pitt.edu"
-   # address       : "6073 Forbes Tower Pittsburgh PA 15213"
-  - name          : "Yina Quique"
-    affiliation   : "2"
-  - name          : "Alexander Swiderski"
-    affiliation   : "1"
-  - name          : "Lydia Kalhoff"
-    affiliation   : "3"
-  - name          : "Lauren Terhorst"
-    affiliation   : "1"
-  - name          : "Julie Wambaugh"
-    affiliation   : "3"
-  - name          : "William D. Hula"
-    affiliation   : "4"
-  - name          : "William S. Evans"
-    affiliation   : "1"
-
-affiliation:
-  - id            : "1"
-    institution   : "University of Pittsburgh"
-  - id            : "2"
-    institution   : "Northwestern University"
-  - id            : "3"
-    institution   : "University of Utah"
-  - id            : "4"
-    institution   : "VA Pittsburgh Healthcare System"
-
-abstract: |
-  \noindent Purpose: Small-N studies are the dominant study design supporting evidence-based treatment studies in communication sciences and disorders, and specifically in research on aphasia and related disorders. However, there is little guidance on conducting reproducible analysis of such studies, which has implications for scientific review, rigor, and replication. 
-
-
-  \noindent Methods: This tutorial demonstrates how to implement reproducible analyses of small-N designs by reanalyzing data from Wambaugh et al. (2017), a single-case experimental design study with 20 individuals with post-stroke apraxia of speech and aphasia receiving Sound Production Treatment. A comparison and discussion of the strengths and weaknesses of small-N effect sizes is provided so that researchers can make informed decisions about how to best characterize treatment effects for their own work. 
-
-
-  \noindent Results: Tutorial code demonstrates how to implement the following effect sizes: standardized mean difference, Proportion of Maximal Gain, Tau-U, and mixed-effects models at the individual and group level in the statistical language R. Data and code are publicly available as a resource for students, researchers, and clinicians. 
-
-
-  \noindent Conclusion: This tutorial demonstrates how researchers in aphasia and related disorders can conduct reproducible analysis of small-N studies, the dominant intervention design in the field. We also demonstrate how properties of different approaches to statistical analysis can affect the interpretation and replication of small-N studies. This article may serve as a template for conducting reproducible analyses of the small-N designs common to aphasia and related disorders.
-
-  
-#keywords          : "keywords"
-#wordcount         : "X"
-
-#bibliography      : ["r-references.bib"]
-
-floatsintext      : no
-figurelist        : no
-tablelist         : no
-footnotelist      : no
-linenumbers       : no
-mask              : no
-draft             : no
-
-documentclass     : "apa6"
-classoption       : "doc"
-output :
-  papaja::apa6_pdf:
-    highlight: default
-    keep_tex: false
-  
-header-includes:
-  - \usepackage{setspace}
-  - \AtBeginEnvironment{tablenotes}{\doublespacing}
-  - \usepackage[utf8]{inputenc}
-  - \usepackage{float}
-  - \captionsetup[figure]{labelformat=empty}
-  - \usepackage{lscape}
-  - \usepackage{pdfpages}
-  - \usepackage{graphicx}
-  - \usepackage{multirow}
-  - \usepackage{caption}
-  - \usepackage{tabu}
-
+title: "Towards reproducibility in small-N treatment research in aphasiology: a tutorialy"
+output: pdf_document
 ---
 
 ```{r setup, include = FALSE}
-library("papaja")
 library(kableExtra)
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.height = 4, fig.width = 6, fig.align = "center")
 ```
+
 # Introduction
 
 This document details the code needed to reproduce the effect size analyzes in part 1. of the manuscript. 
@@ -110,8 +32,7 @@ set.seed(42)
 
 ## Read in data
 
-\noindent Note that the current setup uses RStudio R projects (https://support.rstudio.com/hc/en-us/articles/200526207-Using-RStudio-Projects). One of the
-features of R projects is that the working directory is automatically set to the project root (the folder with the .Rproj). A discussion of R projects can be found at https://www.tidyverse.org/blog/2017/12/workflow-vs-script/. In this case `here("study-data")` refers to the /study-data folder inside the project. 
+Note that the current setup uses RStudio R projects (https://support.rstudio.com/hc/en-us/articles/200526207-Using-RStudio-Projects). One of the features of R projects is that the working directory is automatically set to the project root (the folder with the .Rproj). A discussion of R projects can be found at https://www.tidyverse.org/blog/2017/12/workflow-vs-script/. In this case `here("study-data")` refers to the /study-data folder inside the project. 
 
 
 ```{r}
@@ -136,7 +57,6 @@ df <- files %>%
 head(df)
 ```
 
-(ref:table1-caption) Data variables and their description
 
 ```{r, echo = FALSE}
 cols = tibble(
@@ -156,14 +76,15 @@ cols = tibble(
   )
 ) 
 cols %>%
-  kable(format = "latex")
+  kable(format = "latex", caption = "Data variables and their description", booktabs = TRUE) %>%
+  kable_styling(position = "center")
 ```
 
 # Case example: Participant 10
 
 ## Filter data for Participant 10
 
-\noindent Starting from the entire dataset, filter for participant 10, treated items, and
+Starting from the entire dataset, filter for participant 10, treated items, and
 the blocked condition. Then to calculate session-level data (the number of correct responses per session), 
 group by session, and use the summarize function to calculate the number of correct responses per
 session. The `group_by` function also includes phase and spt2017 because we want to keep
@@ -181,7 +102,7 @@ P10 <- df %>%
 
 ## Plot performance over time
 
-\noindent Plotting data from participant (also Figure 1.). First, we select only
+Plotting data from participant (also Figure 1.). First, we select only
 the baseline and treatment phases (ignoring the washout and maintenance phases
 for the purpose of this paper). The we create a dummy variable reflecting whether
 or not the session was included in the SMD/PMG calculations. Finally, the {ggplot2}
@@ -212,17 +133,17 @@ P10 %>%
 
 ## Within-case standardized mean difference
 
-\noindent There are any number of ways to calculate the within case standardized
+There are any number of ways to calculate the within case standardized
 mean difference using R code. In this example, we have used the `SMD()` function
 from the established package {SingleCaseES} by James Pustejovsky because it
 includes additional functions that may be of interest to researchers in aphasiology.
 
-\noindent Note that the bias_correct argument is set to `FALSE` to match what is 
+Note that the bias_correct argument is set to `FALSE` to match what is 
 typically done in aphasia research, though aphasia researchers may benefit
 from using the bias correction for small sample sizes as it can reduce
 procedural sensitivities of the within-case standardized mean difference. 
 
-\noindent Additionally, we do not show all information returned by the function, which
+Additionally, we do not show all information returned by the function, which
 also includes a 95% confidence interval, as it is not clear that this 
 confidence interval applies to the the *d*~BR~ modification of the original 
 within-case standardized mean difference. 
@@ -237,12 +158,12 @@ SMD(A_data = A,
     )$Est
 ```
 
-\noindent To calculate *d*~BR~ for all participants and conditions in the Wambaugh et al, (2017) 
+To calculate *d*~BR~ for all participants and conditions in the Wambaugh et al, (2017) 
 study, we created a custom function which can be found in the R/effect-size-functions.R file.
 
 ## Proportion of potential maximal gain
 
-\noindent There is no R package that includes a function to calculate PMG to our knowledge. However, creating such a function is relatively straightforward. A function that calculates PMG similar to the SMD() function from the {SingleCaseES} package might take the following form, with an additional argument for the number of items treated (nitems). The function calculates the mean of the A phase and B phase, and then calculates and returns the PMG value from the same data as *d*~BR~ above.
+There is no R package that includes a function to calculate PMG to our knowledge. However, creating such a function is relatively straightforward. A function that calculates PMG similar to the SMD() function from the {SingleCaseES} package might take the following form, with an additional argument for the number of items treated (nitems). The function calculates the mean of the A phase and B phase, and then calculates and returns the PMG value from the same data as *d*~BR~ above.
 
 
 ```{r}
@@ -260,16 +181,16 @@ PMG(a_data = A, b_data = B, nitems = 20)
 
 ```
 
-\noindent To calculate PMG for all participants and conditions in the Wambaugh et al, (2017) 
+To calculate PMG for all participants and conditions in the Wambaugh et al, (2017) 
 study, we created a custom function which can be found in the R/effect-size-functions.R file.
 
 ## Tau-U
 
-\noindent The Tau-U family of effect sizes (and a number of other non-overlap measures) can
+The Tau-U family of effect sizes (and a number of other non-overlap measures) can
 be calculated using the {SingleCaseES} package. In this case, we use all data 
 summarized in the P10 dataframe (and not just the data used to calculate *d*~BR~).
 
-\noindent First, we estimate the trend line during the baseline phase, which can be generated
+First, we estimate the trend line during the baseline phase, which can be generated
 by creating a simple linear model using the `lm()` function. The model includes
 the number of correct responses as the dependent variable and the session number
 as the independent variable. The session coefficient reflects the slope during 
@@ -282,10 +203,10 @@ P10 %>%
     coef()
 ```
 
-\noindent The `Tau()` and `Tau_U()` functions take the same data structure as the `SMD()`
+The `Tau()` and `Tau_U()` functions take the same data structure as the `SMD()`
 and `PMG()` functions above. I
 
-\noindent Using the conservative benchmark of 0.33 recommended by Lee and Cherney (2018),
+Using the conservative benchmark of 0.33 recommended by Lee and Cherney (2018),
 we would calculate Tau~A VS. B~ as the slope of the baseline phase
 is only 0.2. To calculate Tau-U~A VS. B~, we can use the `Tau()` function.
 
@@ -296,7 +217,7 @@ B = P10 %>% filter(phase == "treatment") %>% pull(sum_correct)
 Tau(A_data = A, B_data = B)
 ```
 
-\noindent However, if we had elected to correct for baseline trends and use Tau-U~A VS. B - TREND A~, we can use the similar `Tau_U()` function. 
+However, if we had elected to correct for baseline trends and use Tau-U~A VS. B - TREND A~, we can use the similar `Tau_U()` function. 
 
 ```{r}
 Tau_U(A_data = A, B_data = B)
@@ -304,14 +225,14 @@ Tau_U(A_data = A, B_data = B)
 
 ## Mixed-effects model-based effect sizes
 
-\noindent The mixed-effects model example for participant 10 uses item-level data, 
+The mixed-effects model example for participant 10 uses item-level data, 
 so we need to create a new dataframe for this model. The model formula is based on
 a structure from Huitema & McKean (2000). We recommend the reader read Huitema & McKean
 for a clear description and justifcation for this model structure. 
 
 $$Y_{t} = \beta_{0} + \beta_{1}T_{t} + \beta_{2}D_{t} + \beta_{3}[T_{t}-(n_{1}+1)]D_{t} + \epsilon _{t}$$
 
-\noindent After selecting data from participant 10, the coefficients are
+After selecting data from participant 10, the coefficients are
 created by:
 
 - setting `baseline_slope` equal to the session variable
@@ -336,7 +257,19 @@ P10 <- df %>%
          level_change = as.factor(level_change))
 ```
 
-\noindent Figure 2. visualizes each parameter in this model structure. The code
+The resulting matrix looks as follows:
+
+```{r}
+P10 %>%
+  select(phase, baseline_slope, level_change, slope_change) %>%
+  distinct() %>%
+  arrange(baseline_slope) %>%
+  kable(format = "latex", booktabs = TRUE) %>%
+  kable_styling(position = "center")
+```
+
+
+Figure 2. visualizes each parameter in this model structure. The code
 can be found in the .Rmd file, and is omitted from the pdf due to its length. 
 
 ```{r, echo = FALSE, fig.width = 5, fig.height = 3}
@@ -411,7 +344,7 @@ P10_itts %>%
 
 ```
 
-\noindent The following shows how we arrived at the final model for P10
+The following shows how we arrived at the final model for P10
 
 1. First, we fit the maximal random effects structure. However, the model did not converge. 
 
@@ -426,7 +359,7 @@ mod1 <-
 2. Second, we tried specifying a different optimizer, following recommendations that
 can be found at https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#convergence-warnings.
 
-\noindent Because the model structure is pre-determined, we tried a different optimizer, which
+Because the model structure is pre-determined, we tried a different optimizer, which
 we have had more success with in past studies. This removed the convergence warning.
 
 ```{r}
@@ -438,24 +371,24 @@ mod1 <-
           control = glmerControl(optimizer="bobyqa"))
 ```
 
-\noindent We can now examine the model summary:
+We can now examine the model summary:
 
 ```{r}
 summary(mod1)
 ```
 
-\noindent We note that in this case, further reducing the random effects structure often
+We note that in this case, further reducing the random effects structure often
 returns a significant result for the level_change parameter, demonstrating how our
 choice of random effect structure can influence the statistical significance
 of model parameters. 
 
-\noindent Calculating an overall effect size for this participant requires contrasting
+Calculating an overall effect size for this participant requires contrasting
 performance either at the end of treatment with and without the level change and slope
 change parameters, or contrasting performance at the end of treatment with performance
 at the end of baseline. The former option assumes that any baseline trend would have continued
 throughout the treatment phase in the absence of treatment, is typically more conservative. 
 
-\noindent While there is a small, empirical baseline slope in this data, it may be reasonable to
+While there is a small, empirical baseline slope in this data, it may be reasonable to
 consider that this slope is largely driven by lower performance on the second probe session, and
 that performance in baseline sessions 3-6 are stable, and therefore estimate the 
 difference in performance from the end of baseline to the end of treatment. Criteria for such
@@ -498,7 +431,7 @@ contrast(marginal_means,
      infer = c(TRUE, TRUE))
 ```
 
-\noindent We could also make the more conservative assumption that any baseline trend
+We could also make the more conservative assumption that any baseline trend
 continues by choosing the second row where baseline slope is set to the last 
 treatment session.
 
@@ -516,12 +449,12 @@ contrast(marginal_means,
      infer = c(TRUE, TRUE))
 ```
 
-\noindent Notice that there is much greater uncertainty in this contrast, and as a result
+Notice that there is much greater uncertainty in this contrast, and as a result
 the p-value is no longer significant. 
 
 ### Group-level model
 
-\noindent We can extend this individual model to all participants, still
+We can extend this individual model to all participants, still
 focusing on treated items in the blocked condition. First, we create a new dataframe
 that includes all participants and then repeat the model
 
@@ -536,13 +469,13 @@ df_glmm <- df %>%
          level_change = as.factor(level_change))
 ```
 
-\noindent Then we can start again with a relatively maximal random effect structures,
+Then we can start again with a relatively maximal random effect structures,
 noting that we could also include random slopes for items. However, it is unlikely 
 that such a model structure could be supported by the data. In this case we have
 chosen to include the most theoretically important random effects (Matsucheck, 2018)
 that we expect to be supported by the data.
 
-\noindent The model takes a little longer to run, but returns a convergence warning
+The model takes a little longer to run, but returns a convergence warning
 
 ```{r}
 mod2 <-
@@ -553,7 +486,7 @@ mod2 <-
            family = binomial)
 ```
 
-\noindent Again, we change the optimizer. 
+Again, we change the optimizer. 
 
 ```{r}
 mod2 <-
@@ -565,13 +498,13 @@ mod2 <-
        control = glmerControl(optimizer = "bobyqa"))
 ```
 
-\noindent Since the model appears to have converged, we can examine the model results
+Since the model appears to have converged, we can examine the model results
 
 ```{r}
 summary(mod2)
 ```
 
-\noindent The summary table shows us there there are statistically reliable effects
+The summary table shows us there there are statistically reliable effects
 for all three parameters: a small but reliable trend at baseline, a fairly substantial
 level change on average, and an increase in slope from baseline that is slightly more
 than double the initial average trend. Additionally, performance at baseline
@@ -581,7 +514,7 @@ baseline slope and slope change parameters. Finally, the correlation of fixed ef
 shows a positive association between individuals baseline trend and their level change,
 but a negative association between individuals baseline trend and slope change and level change. 
 
-\noindent We can calculate an overall effect size using the same approach as the individual
+We can calculate an overall effect size using the same approach as the individual
 model. In this case, we assume the median number of baseline sessions (11) and treatment 
 sessions (20)
 
@@ -601,7 +534,7 @@ marginal_means = emmeans(
 marginal_means
 ```
 
-\noindent Because the baseline trend, on average, was statistically reliable, 
+Because the baseline trend, on average, was statistically reliable, 
 we calculated an overall effect size assuming that it would have continued in
 the absense of treatment. 
 
@@ -619,7 +552,7 @@ contrast(marginal_means,
      infer = c(TRUE, TRUE))
 ```
 
-\noindent This results in a statistically reliable group
+This results in a statistically reliable group
 effect size of 2.7 logits. Given that the group model suggests a starting
 place of only around 3%, this indicates a gain of about 29 percentage points on average
 can be attributed to the level and slope changes. we can calculate this
@@ -629,7 +562,7 @@ using the frequentist approach.
 
 ## Bayesian Mixed effects models
 
-\noindent Bayesian mixed-effects models can be used in the same fashion as model 2 above to obtain both group and individual effect size estimates. First, a group-level model is estimated. 
+Bayesian mixed-effects models can be used in the same fashion as model 2 above to obtain both group and individual effect size estimates. First, a group-level model is estimated. 
 
 ```{r}
 mod3 <-
@@ -653,11 +586,11 @@ mod3 <-
              file_refit = "on_change")
 ```
 
-\noindent We can check several aspects of model fit and convergence. 
+We can check several aspects of model fit and convergence. 
 
 1. Check that the chains have converged. They should look like "hairy catepillars" with no discernable patterns. 
 
-```{r}
+```{r fig.height = 5, fig.width = 7}
 brms::mcmc_plot(mod3, type = "trace")
 ```
 
@@ -680,7 +613,7 @@ max(rhat(mod3))
 ```
 
 
-\noindent We can preview the model results using `summary()` again. Notably, the model estimates are largely similar to the frequentist model. 
+We can preview the model results using `summary()` again. Notably, the model estimates are largely similar to the frequentist model. 
 
 ```{r}
 summary(mod3)
@@ -708,10 +641,13 @@ es_logit = df_contrasts %>%
 Examine the results:
 
 ```{r}
-head(es_logit, 20)
+head(es_logit, 20) %>% kable(format = "latex", booktabs = TRUE) %>%
+  kable_styling(position = "center")
 ```
+
+
 ```{r}
-devtools::session_info()
+sessionInfo()
 ```
 
 
