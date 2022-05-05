@@ -14,7 +14,7 @@ library(SingleCaseES)
 # current issue with the SingleCaseES function is that it
 # returns an error with BLVAR is 0, instead of NA and a warning
 
-d_BR <-  function(data){ # outcome, phase, bl_phase, tx_phase
+SMD_br <-  function(data){ # outcome, phase, bl_phase, tx_phase
   
   phonemes = unique(data$phoneme)
   
@@ -25,18 +25,28 @@ d_BR <-  function(data){ # outcome, phase, bl_phase, tx_phase
   phoneme1 = data %>% filter(phoneme == phonemes[[1]])
   phoneme2 = data %>% filter(phoneme == phonemes[[2]])
   
-  baseline_mean1 = phoneme1 %>% filter(BR=="bl") %>% summarize(m=mean(correct)) %>% pull(m)
-  baseline_mean2 = phoneme2 %>% filter(BR=="bl") %>% summarize(m=mean(correct)) %>% pull(m)
+  baseline_mean1 = phoneme1 %>% filter(spt2017=="pre") %>% summarize(m=mean(correct)) %>% pull(m)
+  baseline_mean2 = phoneme2 %>% filter(spt2017=="pre") %>% summarize(m=mean(correct)) %>% pull(m)
   
-  baseline_var1 = phoneme1 %>% filter(BR=="bl") %>% summarize(st=sd(correct)) %>% pull(st)
-  baseline_var2 = phoneme2 %>% filter(BR=="bl") %>% summarize(st=sd(correct)) %>% pull(st)
+  baseline_var1 = phoneme1 %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
+  baseline_var2 = phoneme2 %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
   
-  tx_mean1 = phoneme1 %>% filter(BR=="tx") %>% summarize(m=mean(correct)) %>% pull(m)
-  tx_mean2 = phoneme2 %>% filter(BR=="tx") %>% summarize(m=mean(correct)) %>% pull(m)
+  tx_mean1 = phoneme1 %>% filter(spt2017=="post") %>% summarize(m=mean(correct)) %>% pull(m)
+  tx_mean2 = phoneme2 %>% filter(spt2017=="post") %>% summarize(m=mean(correct)) %>% pull(m)
   
+  # baseline_mean = data %>% filter(spt2017=="pre") %>% summarize(m=mean(correct)) %>% pull(m)
+  # baseline_var = data %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
+  # tx_mean = data %>% filter(spt2017=="post") %>% summarize(m=mean(correct)) %>% pull(m)
+  # 
   note = NA
+  # 
+  # if(baseline_var != 0){
+  #   SMD_tot = (tx_mean-baseline_mean)/baseline_var
+  # } else {
+  #   SMD_tot = NA
+  # }
   
-  if(baseline_var1 == 0 && baseline_var2 == 0){
+  if(baseline_var1 == 0 & baseline_var2 == 0){
     smd_phoneme1 = NA
     smd_phoneme2 = NA
     SMD = NA
@@ -67,7 +77,7 @@ d_BR <-  function(data){ # outcome, phase, bl_phase, tx_phase
   return(df_smd)
   
 }
-  
+
 
 ###########################################################
 # TAU and TAU-U {SingleCaseES} ----------------------------
@@ -100,12 +110,12 @@ Tau_custom <- function(outcome, phase, session, bl_phase, tx_phase){
   
   
   if(trend >= 0.33){
-   es = tau_u
-   measure = "Tau-U"
-  # Otherwise just plain old tau. 
+    es = tau_u
+    measure = "Tau-U"
+    # Otherwise just plain old tau. 
   } else {
-   es = tau
-   measure = "Tau"
+    es = tau
+    measure = "Tau"
   }
   
   es = es[1, c(1:2)]
@@ -159,7 +169,7 @@ PMG = function(phase, outcome, nitems, bl_phase, tx_phase, exclude_missing = FAL
   # pmg is the difference in raw score minus the number of items
   # available to be learned (nitems - baseline score)
   pmg_exit = (mean_tx-mean_bl)/(nitems-mean_bl)
-
+  
   
   # return a table with PMG, the baseline mean, and raw change score
   pmg_table = data.frame(
@@ -168,21 +178,20 @@ PMG = function(phase, outcome, nitems, bl_phase, tx_phase, exclude_missing = FAL
     baseline_score = mean_bl,
     potential_change = nitems-mean_bl,
     raw_change_exit = mean_tx-mean_bl
-
+    
   )
   
   return(pmg_table)
 }
 
 
-# Bayesian effect size
-bayesES = function(fit, itemType, condition){
+getES = function(fit, itemType, condition){
   
   data = fit$data %>%
     group_by(level_change, participant) %>% 
     mutate(last_session = max(baseline_slope)) %>%
     filter(baseline_slope == last_session) %>%
-    select(-correct) %>%
+    select(-response) %>%
     distinct()
   
   # more conservative estimation
@@ -198,40 +207,42 @@ bayesES = function(fit, itemType, condition){
   # print(head(data, 20))
   
   linepred = data %>%
-    add_linpred_draws(fit, re_formula = ~(baseline_slope + level_change + slope_change | participant) + (1|item)) %>%
+    add_linpred_draws(fit) %>%
     ungroup() %>%
     mutate(timepoint = ifelse(level_change == 0, "entry", "exit")) %>%
-    select(timepoint, .draw, .linpred, participant) %>%
+    select(timepoint, item, .draw, .linpred, participant) %>%
     pivot_wider(names_from = "timepoint", values_from = .linpred) %>%
     mutate(ES = exit-entry) %>%
     group_by(participant) %>%
     point_interval(ES) %>%
     mutate(unit = "logit", itemType = itemType, condition = condition)
-  
-  linepredOR = data %>%
-    add_linpred_draws(fit) %>%
-    ungroup() %>%
-    mutate(timepoint = ifelse(level_change == 0, "entry", "exit")) %>%
-    select(timepoint, .draw, .linpred, participant) %>%
-    pivot_wider(names_from = "timepoint", values_from = .linpred) %>%
-    mutate(ES = exit-entry) %>%
-    group_by(participant) %>%
-    point_interval(ES) %>%
-    mutate(unit = "OR", itemType = itemType, condition = condition,
-           ES = exp(ES), .lower = exp(.lower), .upper = exp(.upper))
+  # 
+  # linepredOR = data %>%
+  #   add_linpred_draws(fit) %>%
+  #   ungroup() %>%
+  #   mutate(timepoint = ifelse(level_change == 0, "entry", "exit")) %>%
+  #   select(timepoint, item, .draw, .linpred, participant) %>%
+  #   pivot_wider(names_from = "timepoint", values_from = .linpred) %>%
+  #   mutate(ES = exit-entry) %>%
+  #   group_by(participant) %>%
+  #   point_interval(ES) %>%
+  #   mutate(unit = "OR", itemType = itemType, condition = condition,
+  #          ES = exp(ES), .lower = exp(.lower), .upper = exp(.upper))
   
   epred = data %>%
     add_epred_draws(fit) %>%
     ungroup() %>%
     mutate(timepoint = ifelse(level_change == 0, "entry", "exit")) %>%
-    select(timepoint, .draw, .epred, participant, trials) %>%
-    pivot_wider(names_from = "timepoint", values_from = .epred) %>% 
-    mutate(ES = (exit-entry)/trials) %>% 
+    select(timepoint, .draw, item, .epred, participant) %>%
+    pivot_wider(names_from = "timepoint", values_from = .epred) %>%
+    mutate(ES = exit-entry) %>% 
     group_by(participant) %>%
     point_interval(ES) %>%
     mutate(unit = "pred", itemType = itemType, condition = condition)
   
-  return(bind_rows(linepred, linepredOR, epred))
+  return(bind_rows(linepred, epred))
 }
+# 
+
 
 

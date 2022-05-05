@@ -86,6 +86,9 @@ library("papaja")
 library(kableExtra)
 knitr::opts_chunk$set(echo = TRUE)
 ```
+# Introduction
+
+This document details the code needed to reproduce the effect size analyzes in part 1. of the manuscript. 
 
 # Setup 
 
@@ -136,7 +139,7 @@ head(df)
 (ref:table1-caption) Data variables and their description
 
 ```{r, echo = FALSE}
-tibble(
+cols = tibble(
   Variable = colnames(df),
   Description = c(
     "de-identified participant ID",
@@ -151,8 +154,9 @@ tibble(
     "accuracy of participant response",
     "Number of baseline sessions"
   )
-) %>%
-  papaja::apa_table(caption = "(ref:table1-caption)", placement = "h")
+) 
+cols %>%
+  kable(format = "latex")
 ```
 
 # Case example: Participant 10
@@ -657,10 +661,16 @@ mod3 <-
 brms::mcmc_plot(mod3, type = "trace")
 ```
 
-2. Check that the model can successfully re-estimate the data. The dark blue line (observed data) should be centered in the light blue area (model predictions). 
+2. Check that the model can successfully re-estimate the data. ALEX PUT DESCRIPTION HERE. 
 
 ```{r}
-bayesplot::ppc_check(mod3, ndraws = 200)
+y = mod3$data$response
+yrep = posterior_predict(mod3)
+mean_ppc = mean(apply(yrep, 1, mean) > mean(y))
+sd_ppc = mean(apply(yrep, 1, sd) > sd(y))
+kurtosis_ppc = mean(apply(yrep, 1, e1071::kurtosis) > e1071::kurtosis(y))
+
+print(c(mean_ppc, sd_ppc, kurtosis_ppc))
 ```
 
 3. Rhat statistic should be < 1.05, ideally < 1.01
@@ -701,25 +711,8 @@ Examine the results:
 head(es_logit, 20)
 ```
 ```{r}
-session_info()
+devtools::session_info()
 ```
 
 
-
-
-
-```{r}
-y = mod3$data$response
-yrep = posterior_predict(mod3, ndraws = 500)
-ppc_stat(y, yrep, stat="mean")
-ppc_stat(y, yrep, stat = "sd") 
-
-
-y = mod3$data$response
-yrep = posterior_predict(mod3)
-ppc_stat(y, yrep, stat = "sd")
-mean(apply(yrep, 1, mean) > mean(y))
-mean(apply(yrep, 1, sd) > sd(y))
-mean(apply(yrep, 1, e1071::kurtosis) > e1071::kurtosis(y))
-```
 

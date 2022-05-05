@@ -50,20 +50,22 @@ df_smd = df %>%
   summarize(correct = sum(response),
             trials = unique(trials)) %>%
   ungroup() %>%
+  drop_na(itemType) %>%
   nest_by(participant, condition, itemType) %>%
   summarize(SMD_br(data))
 
 
   
   df_pmg = df %>%
-  filter(BR != "exclude") %>%
+  filter(!is.na(spt2017)) %>%
   group_by(participant, phase, condition, itemType, session,
-           BR, trials, phoneme) %>%
+           spt2017, trials, phoneme) %>%
   summarize(correct = sum(response),
             trials = unique(trials)) %>%
+  drop_na(itemType) %>%
   group_by(participant, condition, itemType, phoneme) %>%
-  summarize(PMG(outcome = correct, phase = BR, nitems = trials,
-                bl_phase = "bl", tx_phase = "tx"))
+  summarize(PMG(outcome = correct, phase = spt2017, nitems = trials,
+                bl_phase = "pre", tx_phase = "post"))
 
 
 df_tau = df %>%

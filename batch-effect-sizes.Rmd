@@ -1,0 +1,348 @@
+---
+title             : "Towards reproducibility in small-N treatment research in aphasiology: a tutorialy"
+shorttitle        : "Reproducible Small-N"
+
+author: 
+  - name          : "Robert Cavanaugh"
+    affiliation   : "1"
+    corresponding : yes    
+    email         : "rob.cavanaugh@pitt.edu"
+   # address       : "6073 Forbes Tower Pittsburgh PA 15213"
+  - name          : "Yina Quique"
+    affiliation   : "2"
+  - name          : "Alexander Swiderski"
+    affiliation   : "1"
+  - name          : "Lydia Kalhoff"
+    affiliation   : "3"
+  - name          : "Lauren Terhorst"
+    affiliation   : "1"
+  - name          : "Julie Wambaugh"
+    affiliation   : "3"
+  - name          : "William D. Hula"
+    affiliation   : "4"
+  - name          : "William S. Evans"
+    affiliation   : "1"
+
+affiliation:
+  - id            : "1"
+    institution   : "University of Pittsburgh"
+  - id            : "2"
+    institution   : "Northwestern University"
+  - id            : "3"
+    institution   : "University of Utah"
+  - id            : "4"
+    institution   : "VA Pittsburgh Healthcare System"
+
+abstract: |
+  \noindent Purpose: Small-N studies are the dominant study design supporting evidence-based treatment studies in communication sciences and disorders, and specifically in research on aphasia and related disorders. However, there is little guidance on conducting reproducible analysis of such studies, which has implications for scientific review, rigor, and replication. 
+
+
+  \noindent Methods: This tutorial demonstrates how to implement reproducible analyses of small-N designs by reanalyzing data from Wambaugh et al. (2017), a single-case experimental design study with 20 individuals with post-stroke apraxia of speech and aphasia receiving Sound Production Treatment. A comparison and discussion of the strengths and weaknesses of small-N effect sizes is provided so that researchers can make informed decisions about how to best characterize treatment effects for their own work. 
+
+
+  \noindent Results: Tutorial code demonstrates how to implement the following effect sizes: standardized mean difference, Proportion of Maximal Gain, Tau-U, and mixed-effects models at the individual and group level in the statistical language R. Data and code are publicly available as a resource for students, researchers, and clinicians. 
+
+
+  \noindent Conclusion: This tutorial demonstrates how researchers in aphasia and related disorders can conduct reproducible analysis of small-N studies, the dominant intervention design in the field. We also demonstrate how properties of different approaches to statistical analysis can affect the interpretation and replication of small-N studies. This article may serve as a template for conducting reproducible analyses of the small-N designs common to aphasia and related disorders.
+
+  
+#keywords          : "keywords"
+#wordcount         : "X"
+
+#bibliography      : ["r-references.bib"]
+
+floatsintext      : no
+figurelist        : no
+tablelist         : no
+footnotelist      : no
+linenumbers       : no
+mask              : no
+draft             : no
+
+documentclass     : "apa6"
+classoption       : "doc"
+output :
+  papaja::apa6_pdf:
+    highlight: default
+    keep_tex: false
+  
+header-includes:
+  - \usepackage{setspace}
+  - \AtBeginEnvironment{tablenotes}{\doublespacing}
+  - \usepackage[utf8]{inputenc}
+  - \usepackage{float}
+  - \captionsetup[figure]{labelformat=empty}
+  - \usepackage{lscape}
+  - \usepackage{pdfpages}
+  - \usepackage{graphicx}
+  - \usepackage{multirow}
+  - \usepackage{caption}
+  - \usepackage{tabu}
+
+---
+
+```{r setup, include = FALSE}
+library("papaja")
+library(kableExtra)
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Introduction
+
+This document details the code batch calculate effect sizes.  
+
+# Setup 
+
+## Load packages and functions
+
+```{r}
+library(here)           # for locating files
+library(tidyverse)      # data wrangling
+library(SingleCaseES)   # calculating SMD, Tau-U
+library(lme4)           # frequentist mixed-effects models
+library(emmeans)        # estimating effect sizes from lme4
+library(brms)           # bayesian mixed-effects models
+library(tidybayes)      # estimating effect sizes from brms
+library(ggdist)         # Visualizing posterior distributions
+
+# set a seed for reproducibility
+set.seed(42)
+
+source(here("R", "effect-size-functions.R"))    
+
+```
+
+## Read in data
+
+\noindent Note that the current setup uses RStudio R projects (https://support.rstudio.com/hc/en-us/articles/200526207-Using-RStudio-Projects). One of the
+features of R projects is that the working directory is automatically set to the project root (the folder with the .Rproj). A discussion of R projects can be found at https://www.tidyverse.org/blog/2017/12/workflow-vs-script/. In this case `here("study-data")` refers to the /study-data folder inside the project. 
+
+
+```{r}
+# create a list of files
+files <- list.files(
+                 here("study-data"), # look in the study-data folder
+                 full.names = TRUE,  # use the full paths of the files
+                 pattern = ".csv",   # only read in .csv files
+                 recursive = TRUE)   # include files within subfolders
+
+# read in the files and combine them together
+# map_df takes a function, in this case read_csv().
+# show_col_types suppresses output sinc we're reading in many files
+df <- files %>%
+  map_dfr(read_csv, show_col_types = FALSE)
+
+```
+
+# Calculate effect sizes
+
+
+## *d*~BR~
+
+```{r}
+df_smd = df %>%
+  filter(!is.na(spt2017)) %>%
+  group_by(participant, phase, condition, itemType, session,
+           spt2017, trials, phoneme) %>%
+  summarize(correct = sum(response),
+            trials = unique(trials)) %>%
+  ungroup() %>%
+  drop_na(itemType) %>%
+  nest_by(participant, condition, itemType) %>%
+  summarize(SMD_br(data))
+```
+
+## PMG
+
+```{r}
+df_pmg = df %>%
+  filter(!is.na(spt2017)) %>%
+  group_by(participant, phase, condition, itemType, session,
+           spt2017, trials) %>%
+  summarize(correct = sum(response),
+            trials = unique(trials)*2) %>%
+  drop_na(itemType) %>%
+  group_by(participant, condition, itemType) %>%
+  summarize(PMG(outcome = correct, phase = spt2017, nitems = trials,
+                bl_phase = "pre", tx_phase = "post"))
+```
+
+## Tau-U
+
+```{r}
+df_tau = df %>%
+  filter(phase == "baseline" | phase == "treatment") %>%
+  group_by(participant, phase, condition, itemType, session) %>%
+  summarize(correct = sum(response)) %>%
+  group_by(participant, condition, itemType) %>%
+  summarize(Tau_custom(outcome = correct, phase = phase, 
+                       bl_phase = "baseline", tx_phase = "treatment",
+                       session = session))
+```
+
+## Bayesian Mixed-effects models
+
+\noindent Setup data
+
+```{r}
+df_itts_group = df %>%
+  filter(phase == "baseline" | phase == "treatment") %>%
+  mutate(baseline_slope = session,
+         level_change = ifelse(phase == "baseline", 0, 1),
+         slope_change = (session - (n_baselines+2))*level_change) %>%
+  select(response, participant, condition, itemType, phase,
+         phoneme, item, baseline_slope, level_change, slope_change) 
+
+# df_itts_group = df %>%
+#   filter(phase == "baseline" | phase == "treatment") %>%
+#   left_join(bl_sessions, by = c("participant", "itemType", "condition")) %>%
+#   mutate(baseline_slope = session,
+#          level_change = ifelse(phase == "baseline", 0, 1),
+#          slope_change = (session - (max_bl+2))*level_change,
+#          obs = 1) %>%
+#   select(response, participant, condition, itemType, phase,
+#          trials, baseline_slope, level_change, slope_change, obs) %>%
+#   group_by(baseline_slope, level_change, slope_change, participant, condition, itemType) %>%
+#   summarize(correct = sum(response),
+#             trials = sum(obs)) 
+```
+
+### Blocked Treated
+
+```{r}
+
+  mod_tx_bl <- brm(
+    response ~ 0 + Intercept + baseline_slope + level_change + slope_change + 
+               (1 + baseline_slope + level_change + slope_change | participant) +
+               (1| item),
+             data = df_itts_group %>% filter(condition == "blocked", itemType == "tx"),
+             family = bernoulli(),
+             iter = 3000,
+             warmup = 1000,
+             cores = 4, chains = 4,
+             prior = c(
+               prior(normal(-1, 2.5), class = b, coef = Intercept),
+               prior(normal(0, 2.5), class = b)
+             ),
+    control = list(adapt_delta = 0.9),
+             seed = 42,
+             file = "models/mod_tx_bl",
+             file_refit = "on_change"
+  )
+```
+
+### Blocked Generalization
+
+```{r}
+  
+  mod_gx_bl <- brm(
+    response ~ 0 + Intercept + baseline_slope + level_change + slope_change + 
+               (1 + baseline_slope + level_change + slope_change | participant) +
+               (1| item),
+                   data = df_itts_group %>% filter(condition == "blocked", itemType == "gx"),
+                   family = bernoulli(),
+                   iter = 3000,
+                   warmup = 1000,
+                   cores = 4, chains = 4,
+                   prior = c(
+                     prior(normal(-1, 2.5), class = b, coef = Intercept),
+                     prior(normal(0, 2.5), class = b)
+                   ),
+                   control = list(adapt_delta = 0.85),
+                   seed = 42,
+                   file = "models/mod_gx_bl",
+                   file_refit = "on_change"
+  )
+  
+```
+
+### Random Treated
+
+```{r}
+  mod_tx_ra <- brm(
+    response ~ 0 + Intercept + baseline_slope + level_change + slope_change + 
+               (1 + baseline_slope + level_change + slope_change | participant) +
+               (1| item),
+                   data = df_itts_group %>% filter(condition == "random", itemType == "tx"),
+                   family = bernoulli(),
+                   iter = 3000,
+                   warmup = 1000,
+                   cores = 4, chains = 4,
+                   prior = c(
+                     prior(normal(-1, 2.5), class = b, coef = Intercept),
+                     prior(normal(0, 2.5), class = b)
+                   ),
+                   seed = 42,
+    control = list(adapt_delta = 0.85),
+                   file = "models/mod_tx_ra",
+                   file_refit = "on_change"
+  )
+  
+```
+
+### Random Generalization
+
+```{r}
+  mod_gx_ra <- brm(
+    response ~ 0 + Intercept + baseline_slope + level_change + slope_change + 
+               (1 + baseline_slope + level_change + slope_change | participant) +
+               (1| item),
+                   data = df_itts_group %>% filter(condition == "random", itemType == "gx"),
+                   family = bernoulli(),
+                   iter = 3000,
+                   warmup = 1000,
+                   cores = 4, chains = 4,
+                   control = list(adapt_delta = 0.9),
+                   prior = c(
+                     prior(normal(-1, 2), class = b, coef = Intercept),
+                     prior(normal(0, 2), class = b)
+                   ),
+                   seed = 42,
+                   file = "models/mod_gx_ra",
+                   file_refit = "on_change"
+  )
+  
+```
+
+### Calculate Effect sizes
+
+```{r}
+
+es_tx_bl = getES(mod_tx_bl, "tx", "blocked")
+es_tx_ra = getES(mod_tx_ra, "tx", "random")
+es_gx_bl = getES(mod_gx_bl, "gx", "blocked")
+es_gx_ra = getES(mod_gx_ra, "gx", "random")
+
+
+smd = 
+  df_smd %>%
+  select(participant, condition, itemType, SMD)
+
+pmg = 
+  df_pmg %>%
+  select(participant, condition, itemType, PMG, raw_change = raw_change_exit)
+
+tau = 
+  df_tau %>%
+  select(participant, condition, itemType, Tau = Est)
+
+bglmm = 
+  bind_rows(es_tx_bl, es_tx_ra, es_gx_bl, es_gx_ra) %>%
+  select(participant, ES, unit, itemType, condition) %>%
+  pivot_wider(names_from = unit, values_from = ES) %>%
+  rename(glmm_logit = logit, glmm_percent = pred)
+
+es = smd %>%
+  left_join(pmg, by = c("participant", "itemType", "condition")) %>%
+  left_join(tau, by = c("participant", "itemType", "condition")) %>%
+  left_join(bglmm, by = c("participant", "itemType", "condition")) %>%
+  select(-raw_change)
+```
+
+## Basic plot
+
+```{r}
+GGally::ggpairs(es,
+                columns = 4:8,
+                mapping = aes(color = itemType))
+```
+
