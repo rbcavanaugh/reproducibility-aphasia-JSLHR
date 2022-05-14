@@ -18,13 +18,13 @@ This document details the code needed to reproduce the effect size analyzes in p
 
 ```{r}
 library(here)           # for locating files
-library(tidyverse)      # data wrangling
 library(SingleCaseES)   # calculating SMD, Tau-U
 library(lme4)           # frequentist mixed-effects models
 library(emmeans)        # estimating effect sizes from lme4
 library(brms)           # bayesian mixed-effects models
 library(tidybayes)      # estimating effect sizes from brms
 library(ggdist)         # Visualizing posterior distributions
+library(tidyverse)
 
 # set a seed for reproducibility
 set.seed(42)
@@ -111,7 +111,7 @@ here: https://doi.org/10.1177/25152459221074654
 
 ```{r, fig.width = 5, fig.height = 3, warning = FALSE}
 
-P10 %>%
+p1 = P10 %>%
   filter(phase == "baseline" | phase == "treatment") %>%
   mutate(Measure = factor(
     ifelse(!is.na(spt2017), "include", "exclude"),
@@ -129,6 +129,8 @@ P10 %>%
        (2017)",
        y="Percent Correct") +
   guides(alpha = "none")
+
+p1
 ```
 
 ## Within-case standardized mean difference
@@ -305,7 +307,7 @@ new_dat2$preds = predict(mod, newdata = new_dat2, type = "response")
 new_dat2 = new_dat2 %>%
   filter(session<9)
 
-P10_itts %>%
+p2 = P10_itts %>%
   filter(phase == "baseline" | phase == "treatment") %>%
   ggplot(aes(x = session, y = sum_correct/20, group = phase)) +
   geom_point(size = 4) + 
@@ -342,6 +344,7 @@ P10_itts %>%
     label = "slope change"
   ) 
 
+p2
 ```
 
 The following shows how we arrived at the final model for P10
@@ -645,6 +648,11 @@ head(es_logit, 20) %>% kable(format = "latex", booktabs = TRUE) %>%
   kable_styling(position = "center")
 ```
 
+Save tables and plots for cleaning for publication
+
+```{r}
+save(p1, p2, file = here("manuscript", "tables-plots.RData"))
+```
 
 ```{r}
 sessionInfo()

@@ -4,7 +4,6 @@ output : pdf_document
 ---
 
 ```{r setup, include = FALSE}
-library("papaja")
 library(kableExtra)
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 ```
@@ -19,13 +18,14 @@ This document details the code batch calculate effect sizes.
 
 ```{r}
 library(here)           # for locating files
-library(tidyverse)      # data wrangling
+library(GGally)         # Plotting
 library(SingleCaseES)   # calculating SMD, Tau-U
 library(lme4)           # frequentist mixed-effects models
 library(emmeans)        # estimating effect sizes from lme4
 library(brms)           # bayesian mixed-effects models
 library(tidybayes)      # estimating effect sizes from brms
 library(ggdist)         # Visualizing posterior distributions
+library(tidyverse)      # data wrangling and plotting
 
 # set a seed for reproducibility
 set.seed(42)
@@ -261,15 +261,60 @@ es = smd %>%
   left_join(pmg, by = c("participant", "itemType", "condition")) %>%
   left_join(tau, by = c("participant", "itemType", "condition")) %>%
   left_join(bglmm, by = c("participant", "itemType", "condition")) %>%
-  select(-raw_change)
+  select(-raw_change) %>%
+  mutate(itemType = factor(itemType, levels = c("tx", "gx")))
+
+write.csv(es, here("shiny", "effect-sizes.csv"), row.names = FALSE)
+write.csv(df, here("shiny", "data.csv"), row.names = FALSE)
+
 ```
 
 ## Plot comparisons
 
 ```{r, warning = FALSE}
-GGally::ggpairs(es,
-                columns = 4:8,
-                mapping = aes(color = itemType))
+p3 = ggpairs(es,
+        columns = 4:8,
+        mapping = aes(fill = itemType, color = itemType),
+        columnLabels = c("d[BR]", "PMG", "T~au-U", "GLMM~Logit", "GLMM~Percent"),
+        labeller = "label_parsed",
+         diag = list(discrete="barDiag", 
+                           continuous = wrap("densityDiag", alpha=0.5, color = "grey50" )), 
+               upper = list(#combo = wrap("box_no_facet", alpha=0.5),
+                            continuous = wrap(ggally_cor, stars = F, digits = 2)),
+        lower = list(continuous = wrap("points", alpha = 0.7, pch=21, color="grey40", size=1.5)))
+
+dropLeadingZero <- function(l){
+  lnew <- c()
+  for(i in l){
+    if(i==0){ #zeros stay zero
+      lnew <- c(lnew,"0")
+    } else if (i>1){ #above one stays the same
+      lnew <- c(lnew, as.character(i))
+    } else
+      lnew <- c(lnew, gsub("(?<![0-9])0+", "", i, perl = TRUE))
+  }
+  as.character(lnew)
+}
+
+
+p3[2,1] = p3[2,1] + scale_x_continuous(breaks = seq(0, 15, 3))
+p3[3,1] = p3[3,1] + scale_x_continuous(breaks = seq(0, 15, 3))
+p3[4,1] = p3[4,1] + scale_x_continuous(breaks = seq(0, 15, 3))
+p3[5,1] = p3[5,1] + scale_x_continuous(breaks = seq(0, 15, 3))
+
+p3[3,2] = p3[3,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+p3[4,2] = p3[4,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+p3[5,2] = p3[5,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+
+p3[4,3] = p3[4,3] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+p3[5,3] = p3[5,3] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+
+p3[5,4] = p3[5,4] + scale_x_continuous(breaks = seq(0, 10, 2))
+
+p3[5,5] = p3[5,5] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25), limits = c(0,1))
+
+ggsave(p3, filename = here("manuscript", "p3.png"), bg = "white", width = 7, height = 6, dpi = 400)
+
 ```
 
 

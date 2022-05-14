@@ -13,7 +13,7 @@ library(tidybayes)
 # Create example data for testing -------------------------
 ###########################################################
 
-source(here("R", "07-effect-size-function-examples.R"))    
+source(here("R", "effect-size-functions.R"))    
 
 # df = read.csv(here("cleaned-data", "data-for-models-br.csv"), stringsAsFactors = T) %>%
 #   drop_na(response)
@@ -71,15 +71,6 @@ df_smd = df %>%
 df_tau = df %>%
   filter(phase == "baseline" | phase == "treatment") %>%
   group_by(participant, phase, condition, itemType, session) %>%
-  summarize(correct = sum(response)) %>%
-  group_by(participant, condition, itemType) %>%
-  summarize(Tau_custom(outcome = correct, phase = phase, 
-                       bl_phase = "baseline", tx_phase = "treatment",
-                       session = session))
-
-df_tau2 = df %>%
-  filter(phase == "baseline" & BR != "exclude" | phase == "treatment") %>%
-  group_by(participant, phase, condition, itemType, session, BR) %>%
   summarize(correct = sum(response)) %>%
   group_by(participant, condition, itemType) %>%
   summarize(Tau_custom(outcome = correct, phase = phase, 
@@ -146,8 +137,8 @@ df_itts_group = df %>%
             # refresh = 0,
              backend = "cmdstan",
              seed = 4,
-             file = "models/mod_tx_bl",
-             file_refit = "on_change"
+             file = "models/mod_tx_bl"#,
+             #file_refit = "on_change"
   )
   
   
@@ -166,8 +157,8 @@ df_itts_group = df %>%
                    backend = "cmdstan",
                    control = list(adapt_delta = 0.85),
                    seed = 4,
-                   file = "models/mod_gx_bl",
-                   file_refit = "on_change"
+                   file = "models/mod_gx_bl"#,
+                   #file_refit = "on_change"
   )
   
   
@@ -186,8 +177,8 @@ df_itts_group = df %>%
                    ),
                    backend = "cmdstan",
                    seed = 4,
-                   file = "models/mod_tx_ra",
-                   file_refit = "on_change"
+                   file = "models/mod_tx_ra"#,
+                   #file_refit = "on_change"
   )
   
   
@@ -207,8 +198,8 @@ df_itts_group = df %>%
                    ),
                    backend = "cmdstan",
                    seed = 4,
-                   file = "models/mod_gx_ra",
-                   file_refit = "on_change"
+                   file = "models/mod_gx_ra"#,
+                   #file_refit = "on_change"
   )
   
   
