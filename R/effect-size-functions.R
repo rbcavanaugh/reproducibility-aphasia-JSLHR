@@ -17,66 +17,88 @@
 SMD_br <-  function(data){ # outcome, phase, bl_phase, tx_phase
   
   phonemes = unique(data$phoneme)
-  
+
   if(length(phonemes)>2){
     cat("Error: Too many phonemes in dataset")
   }
   
-  phoneme1 = data %>% filter(phoneme == phonemes[[1]])
-  phoneme2 = data %>% filter(phoneme == phonemes[[2]])
+  phonemes = data %>% group_by(phoneme, session, spt2017, phase) %>%
+    summarize(correct = sum(correct), .groups = "drop")
   
-  baseline_mean1 = phoneme1 %>% filter(spt2017=="pre") %>% summarize(m=mean(correct)) %>% pull(m)
-  baseline_mean2 = phoneme2 %>% filter(spt2017=="pre") %>% summarize(m=mean(correct)) %>% pull(m)
+  baseline_mean  = phonemes %>% filter(spt2017=="pre") %>% summarize(m=mean(correct)) %>% pull(m)
+  baseline_mean_all  = phonemes %>% filter(phase == "baseline") %>% summarize(m=mean(correct)) %>% pull(m)
   
-  baseline_var1 = phoneme1 %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
-  baseline_var2 = phoneme2 %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
+  baseline_var  = phonemes %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
+  baseline_var_all  = phonemes %>% filter(phase == "baseline") %>% summarize(st=sd(correct)) %>% pull(st)
   
-  tx_mean1 = phoneme1 %>% filter(spt2017=="post") %>% summarize(m=mean(correct)) %>% pull(m)
-  tx_mean2 = phoneme2 %>% filter(spt2017=="post") %>% summarize(m=mean(correct)) %>% pull(m)
+  tx_mean  = phonemes %>% filter(spt2017=="post") %>% summarize(m=mean(correct)) %>% pull(m)
   
-  # baseline_mean = data %>% filter(spt2017=="pre") %>% summarize(m=mean(correct)) %>% pull(m)
-  # baseline_var = data %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
-  # tx_mean = data %>% filter(spt2017=="post") %>% summarize(m=mean(correct)) %>% pull(m)
-  # 
   note = NA
-  # 
-  # if(baseline_var != 0){
-  #   SMD_tot = (tx_mean-baseline_mean)/baseline_var
-  # } else {
-  #   SMD_tot = NA
-  # }
+  note_all = NA
   
-  if(baseline_var1 == 0 & baseline_var2 == 0){
-    smd_phoneme1 = NA
-    smd_phoneme2 = NA
+  if(baseline_var > 0){
+    SMD = (tx_mean - baseline_mean) / sqrt(baseline_var)
+  } else {
     SMD = NA
-    note = "no variance in either baseline"
-  } else if(baseline_var1==0){
-    baseline_var1 = baseline_var2
-    note = "used phoneme2 variance"
-  } else if (baseline_var2==0){
-    baseline_var2 = baseline_var1
-    note = "used phoneme1 variance"
+    note = "No baseline variability to calculate SMD"
   }
   
-  if(baseline_var1 > 0 | baseline_var2 > 0){
-    smd_phoneme1 = (tx_mean1 - baseline_mean1) / sqrt(baseline_var1)
-    smd_phoneme2 = (tx_mean2 - baseline_mean2) / sqrt(baseline_var2)
-    SMD = mean(smd_phoneme1, smd_phoneme2)
+  if(baseline_var_all > 0){
+    SMD_all = (tx_mean - baseline_mean_all) / sqrt(baseline_var_all)
+  } else {
+    SMD_all = NA
+    note_all = "No baseline variability to calculate SMD"
   }
   
   df_smd = data.frame(
-    SMD1 = smd_phoneme1,
-    SMD2 = smd_phoneme2,
-    VAR1 = baseline_var1,
-    VAR2 = baseline_var2,
     SMD = SMD,
-    note = note
+    SMD_all = SMD_all,
+    VAR1 = baseline_var,
+    VAR2 = baseline_var_all,
+    note = note,
+    note = note_all
   )
   
   return(df_smd)
   
 }
+
+# phoneme1 = data %>% filter(phoneme == phonemes[[1]])
+# phoneme2 = data %>% filter(phoneme == phonemes[[2]])
+
+# baseline_mean1 = phoneme1 %>% filter(spt2017=="pre") %>% summarize(m=mean(correct)) %>% pull(m)
+# baseline_mean2 = phoneme2 %>% filter(spt2017=="pre") %>% summarize(m=mean(correct)) %>% pull(m)
+
+# baseline_mean1_all = phoneme1 %>% summarize(m=mean(correct)) %>% pull(m)
+# baseline_mean2_all = phoneme2 %>% summarize(m=mean(correct)) %>% pull(m)
+
+# baseline_var1 = phoneme1 %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
+# baseline_var2 = phoneme2 %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
+
+# baseline_var1_all = phoneme1 %>% summarize(st=sd(correct)) %>% pull(st)
+# baseline_var2_all = phoneme2 %>% summarize(st=sd(correct)) %>% pull(st)
+
+# tx_mean1 = phoneme1 %>% filter(spt2017=="post") %>% summarize(m=mean(correct)) %>% pull(m)
+# tx_mean2 = phoneme2 %>% filter(spt2017=="post") %>% summarize(m=mean(correct)) %>% pull(m)
+
+# if(baseline_var1 > 0 | baseline_var2 > 0){
+#   smd_phoneme1 = (tx_mean1 - baseline_mean1) / sqrt(baseline_var1)
+#   smd_phoneme2 = (tx_mean2 - baseline_mean2) / sqrt(baseline_var2)
+#   SMD = mean(smd_phoneme1, smd_phoneme2)
+# }
+
+# if(baseline_var1 == 0 & baseline_var2 == 0){
+#   smd_phoneme1 = NA
+#   smd_phoneme2 = NA
+#   SMD = NA
+#   note = "no variance in either baseline"
+# } else if(baseline_var1==0){
+#   baseline_var1 = baseline_var2
+#   note = "used phoneme2 variance"
+# } else if (baseline_var2==0){
+#   baseline_var2 = baseline_var1
+#   note = "used phoneme1 variance"
+# }
 
 
 ###########################################################
@@ -85,7 +107,7 @@ SMD_br <-  function(data){ # outcome, phase, bl_phase, tx_phase
 
 # we can create a function to calculate Tau or Tau-U depending on baseline trend
 
-Tau_custom <- function(outcome, phase, session, bl_phase, tx_phase){
+Tau_custom <- function(outcome, phase, session, bl_phase, tx_phase, cutoff = 0.33){
   
   dat = data.frame(outcome=outcome, phase=phase, session = session) %>%
     arrange(session) %>%
@@ -109,7 +131,7 @@ Tau_custom <- function(outcome, phase, session, bl_phase, tx_phase){
   )
   
   
-  if(trend >= 0.33){
+  if(trend >= cutoff){
     es = tau_u
     measure = "Tau-U"
     # Otherwise just plain old tau. 
@@ -185,27 +207,33 @@ PMG = function(phase, outcome, nitems, bl_phase, tx_phase, exclude_missing = FAL
 }
 
 
-getES = function(fit, itemType, condition){
+###########################################################
+# GLMM LOGIT AND PERCENTAGE {custom function} ------------
+###########################################################
+# The proportion of items gained of the possible items 
+# taking into account baseline performance. 
+# raw change - possible remaining change. 
+
+getES = function(fit, itemType, condition, adjust = FALSE){
   
-  data = fit$data %>%
-    group_by(level_change, participant) %>% 
-    mutate(last_session = max(baseline_slope)) %>%
-    filter(baseline_slope == last_session) %>%
-    select(-response) %>%
-    distinct()
-  
-  # more conservative estimation
-  # data = fit$data %>%
-  #   group_by(level_change, participant) %>% 
-  #   mutate(last_session = max(baseline_slope)) %>%
-  #   filter(baseline_slope == last_session) %>%
-  #   select(-response, -item) %>%
-  #   distinct() %>%
-  #   group_by(participant) %>%
-  #   mutate(baseline_slope = max(baseline_slope))
-  
-  # print(head(data, 20))
-  
+  if(adjust){
+    data = fit$data %>%
+      group_by(level_change, participant) %>% 
+      mutate(last_session = max(baseline_slope)) %>%
+      filter(baseline_slope == last_session) %>%
+      select(-response) %>%
+      distinct() %>%
+      group_by(participant) %>%
+      mutate(baseline_slope = max(baseline_slope))
+  } else {
+    data = fit$data %>%
+      group_by(level_change, participant) %>%
+      mutate(last_session = max(baseline_slope)) %>%
+      filter(baseline_slope == last_session) %>%
+      select(-response) %>%
+      distinct() 
+  }
+
   linepred = data %>%
     add_linpred_draws(fit) %>%
     ungroup() %>%

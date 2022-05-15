@@ -16,13 +16,16 @@ shinyServer(function(input, output, session) {
     
     observe({
       values$collapse = input$collapse
-      values$outcome = input$outcome
+      values$outcome = ifelse(input$outcome, "count", "accuracy")
       values$participant1 = input$participant1
       values$participant2 = input$participant2
       values$condition1 = input$condition1
       values$condition2 = input$condition2
       values$itemType1 = input$itemType1
       values$itemType2 = input$itemType2
+      values$adjust = input$adjust
+      values$all = input$all
+      values$tau = input$tau
       values$ok = "ok"
     })
     
@@ -31,20 +34,44 @@ shinyServer(function(input, output, session) {
     output$plot1 <- renderPlot({
       req(values$ok)
        plotdat1 = get_plotDat(v=values, "1")
-       sced_plot(plotdat1)
+       sced_plot(plotdat1, cap = FALSE)
     })
     
     output$plot2 <- renderPlot({
       plotdat2 = get_plotDat(v=values, "2")
-      sced_plot(plotdat2)
+      sced_plot(plotdat2, cap = TRUE)
     })
     
-    output$t1 <- renderUI({
-      get_table(values$participant1, values$condition1, values$itemType1)
+    output$t1 <- function(){
+      get_table(values$participant1, values$condition1, values$itemType1, values$adjust, values$all, values$tau)
+    }
+    
+    output$t2 <- function(){
+      get_table(values$participant2, values$condition2, values$itemType2, values$adjust, values$all, values$tau)
+    }
+    
+    showModal(modalDialog(
+      title = "Reproducibility in Small-N Designs",
+      includeMarkdown("details.md"),
+      easyClose = TRUE,
+      size = "l", 
+      footer = modalButton("Get Started"),
+    ))
+    
+    observeEvent(input$about, {
+      showModal(modalDialog(
+        title = "Reproducibility in Small-N Designs",
+        includeMarkdown("details.md"),
+        easyClose = TRUE,
+        size = "l"
+      ))
     })
     
-    output$t2 <- renderUI({
-      get_table(values$participant2, values$condition2, values$itemType2)
+    observeEvent(input$shuffle,{
+      updateSelectInput(session=session, "participant1", selected = paste0("P", sample(seq(1, 20, 1), 1)))
+      updateRadioButtons(session=session,"condition1", selected = sample(c("blocked", "random"), 1))
+      updateSelectInput(session=session,"participant2", selected = paste0("P", sample(seq(1, 20, 1), 1)))
+      updateRadioButtons(session=session,"condition2", selected = sample(c("blocked", "random"), 1))
     })
     
 

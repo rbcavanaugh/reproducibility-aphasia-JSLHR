@@ -63,7 +63,7 @@ df <- files %>%
 
 ```{r}
 df_smd = df %>%
-  filter(spt2017 == "pre" | spt2017 == "post" ) %>%
+  filter(phase == "baseline" | phase == "treatment") %>%
   group_by(participant, phase, condition, itemType, session,
            spt2017, trials, phoneme) %>%
   summarize(correct = sum(response),
@@ -96,7 +96,7 @@ df_tau = df %>%
   group_by(participant, condition, itemType) %>%
   summarize(Tau_custom(outcome = correct, phase = phase, 
                        bl_phase = "baseline", tx_phase = "treatment",
-                       session = session), .groups = "drop")
+                       session = session, cutoff = 0.33), .groups = "drop")
 ```
 
 ## Bayesian Mixed-effects models
@@ -241,7 +241,7 @@ es_gx_ra = getES(mod_gx_ra, "gx", "random")
 
 smd = 
   df_smd %>%
-  select(participant, condition, itemType, SMD)
+  select(participant, condition, itemType, SMD, SMD_all)
 
 pmg = 
   df_pmg %>%
@@ -261,12 +261,9 @@ es = smd %>%
   left_join(pmg, by = c("participant", "itemType", "condition")) %>%
   left_join(tau, by = c("participant", "itemType", "condition")) %>%
   left_join(bglmm, by = c("participant", "itemType", "condition")) %>%
-  select(-raw_change) %>%
+  relocate(raw_change, .after = last_col()) %>%
+  relocate(SMD_all, .before = last_col()) %>%
   mutate(itemType = factor(itemType, levels = c("tx", "gx")))
-
-write.csv(es, here("shiny", "effect-sizes.csv"), row.names = FALSE)
-write.csv(df, here("shiny", "data.csv"), row.names = FALSE)
-
 ```
 
 ## Plot comparisons
@@ -332,14 +329,58 @@ ggsave(p3, filename = here("manuscript", "p3.png"), bg = "white", width = 7, hei
 
 
 ```{r, include = FALSE}
-# stats = es %>% 
-#   ungroup() %>%
-#   select(3:8) %>%
-#   group_by(itemType) %>%
-#   report::report() %>%
-#   as.data.frame()
-#   
-# stats
+
+es_tx_bl_adjust = getES(mod_tx_bl, "tx", "blocked", adjust = TRUE)
+es_tx_ra_adjust = getES(mod_tx_ra, "tx", "random", adjust = TRUE)
+es_gx_bl_adjust = getES(mod_gx_bl, "gx", "blocked", adjust = TRUE)
+es_gx_ra_adjust = getES(mod_gx_ra, "gx", "random", adjust = TRUE)
+
+bglmm_adjust = 
+  bind_rows(es_tx_bl_adjust, es_tx_ra_adjust, es_gx_bl_adjust, es_gx_ra_adjust) %>%
+  select(participant, ES, unit, itemType, condition) %>%
+  pivot_wider(names_from = unit, values_from = ES) %>%
+  rename(glmm_logit_a = logit, glmm_percent_a = pred)
+
+
+pmg_all = df %>%
+  filter(phase == "baseline" | phase == "treatment" & spt2017 == "post") %>%
+  group_by(participant, phase, condition, itemType, session,
+           spt2017, trials) %>%
+  summarize(correct = sum(response),
+            trials = unique(trials)*2, .groups = "drop") %>%
+  group_by(participant, condition, itemType) %>%
+  summarize(PMG(outcome = correct, phase = phase, nitems = trials,
+                bl_phase = "baseline", tx_phase = "treatment"), .groups = "drop") %>%
+  select(participant, condition, itemType, PMG_all = PMG, raw_change_all = raw_change_exit)
+
+tau = 
+  df_tau %>%
+  select(participant, condition, itemType, Tau = Est)
+
+tau2 = df %>%
+  filter(phase == "baseline" | phase == "treatment") %>%
+  group_by(participant, phase, condition, itemType, session) %>%
+  summarize(correct = sum(response), .groups = "drop") %>%
+  group_by(participant, condition, itemType) %>%
+  summarize(Tau_custom(outcome = correct, phase = phase, 
+                       bl_phase = "baseline", tx_phase = "treatment",
+                       session = session, cutoff = 0.4), .groups = "drop") %>%
+  select(participant, condition, itemType, Tau_4 = Est)
+
+
+es = smd %>%
+  left_join(pmg, by = c("participant", "itemType", "condition")) %>%
+  left_join(tau, by = c("participant", "itemType", "condition")) %>%
+  left_join(bglmm, by = c("participant", "itemType", "condition")) %>%
+  left_join(bglmm_adjust, by = c("participant", "itemType", "condition")) %>%
+  left_join(pmg_all, by = c("participant", "itemType", "condition")) %>%
+  left_join(tau2, by = c("participant", "itemType", "condition")) %>%
+  relocate(raw_change, .after = last_col()) %>%
+  relocate(SMD_all, .before = last_col()) %>%
+  mutate(itemType = factor(itemType, levels = c("tx", "gx")))
+
+write.csv(es, here("shiny", "effect-sizes.csv"), row.names = FALSE)
+write.csv(df, here("shiny", "data.csv"), row.names = FALSE)
 ```
 
 
