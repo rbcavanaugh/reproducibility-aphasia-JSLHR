@@ -3,35 +3,54 @@
 
 library(tidyverse)
 library(here)
+library(markdown)
 options(dplyr.summarise.inform = FALSE)
-
 
 data = read.csv(here("data.csv")) %>%
 #data = read.csv(here("shiny", "data.csv")) %>%
+  filter(phase == "baseline" | phase == "treatment") %>%
   mutate(
     spt2017 = ifelse(spt2017 != "fu", spt2017, NA),
     spt2017 = factor(ifelse(!is.na(spt2017), "Used", "Not Used"), levels = c("Used", "Not Used"))
   ) %>%
   mutate_if(is.character, as.factor)
 
+formatround = function(b){
+  tmp = format(round(b, 2), nsmall = 2)
+  return(tmp)
+}
+
 es = read.csv(here("effect-sizes.csv")) %>%
 #es = read.csv(here("shiny", "effect-sizes.csv")) %>%
   mutate(
-    rankSMD = rank(SMD, ties = "max"),
+    rankSMD = rank(SMD, ties = "max", na.last = FALSE),
     rankPMG = rank(PMG, ties = "max"),
     rankTAU = rank(Tau, ties = "max"),
     rankLOG = rank(glmm_logit, ties = "max"),
     rankPER = rank(glmm_percent, ties = "max"),
+    
+    rankSMD_a = rank(SMD_all, ties = "max", na.last = FALSE),
+    rankPMG_a = rank(PMG_all, ties = "max"),
+    rankTAU_a = rank(Tau_4, ties = "max"),
     rankLOG_a = rank(glmm_logit_a, ties = "max"),
     rankPER_a = rank(glmm_percent_a, ties = "max"),
+    
     rankRAW = rank(raw_change, ties = "max"),
-    rankSMD_a = rank(SMD_all, ties = "max"),
-    rankPMG_a = rank(PMG_all, ties = "max"),
     rankRAW_a = rank(raw_change_all, ties = "max"),
-    rankTAU_a = rank(Tau_4, ties = "max")
+    
+    rankBL = rank(baseline_score, ties = "max"),
+    rankBL_a = rank(baseline_score_all, ties = "max"),
+    
+    ranksd = rank(sd1, ties = "max"),
+    ranksd_a = rank(sd2, ties = "max")
+    
   ) %>%
-  mutate(across(4:14, round, 2))
+  mutate(rankSMD = ifelse(is.na(SMD), 0, rankSMD),
+         rankSMD_a = ifelse(is.na(SMD_all), 0, rankSMD_a),
+         across(4:19, formatround)
+  )
 
+            
 
 get_table <- function(p, c, i, adjust = FALSE, all = FALSE, tau = 0.33) {
   d = es %>%
@@ -39,62 +58,76 @@ get_table <- function(p, c, i, adjust = FALSE, all = FALSE, tau = 0.33) {
            condition == c,
            itemType == i)
   
-  p0 = ifelse(!all, d$rankRAW / 80, d$rankRAW_a / 80)  
-  p1 = ifelse(!all, d$rankSMD / 80, d$rankSMD_a / 80)
-  p2 = ifelse(!all, d$rankPMG / 80, d$rankPMG_a / 80)
-  p3 = ifelse(tau == 0.33, d$rankTAU / 80, d$rankTAU_a / 80)
-  p4 = ifelse(!adjust, d$rankLOG / 80, d$rankLOG_a / 80)
-  p5 = ifelse(!adjust, d$rankPER / 80, d$rankPER_a / 80)
+  pmean = ifelse(!all, d$rankRAW, d$rankRAW_a)  
+  p1 = ifelse(!all, d$rankSMD, d$rankSMD_a)
+  p2 = ifelse(!all, d$rankPMG, d$rankPMG_a)
+  p3 = ifelse(tau == 0.33, d$rankTAU, d$rankTAU_a)
+  p4 = ifelse(!adjust, d$rankLOG, d$rankLOG_a)
+  p5 = ifelse(!adjust, d$rankPER, d$rankPER_a)
+  pbl  = ifelse(!all, d$rankBL, d$rankBL_a)
+  psd = ifelse(!all, d$ranksd, d$ranksd_a)
   
-  rc = ifelse(!all, d$raw_change, d$raw_change_all)
+  rc  = ifelse(!all, d$raw_change, d$raw_change_all)
   smd = ifelse(!all, d$SMD, d$SMD_all)
   pmg = ifelse(!all, d$PMG, d$PMG_all)
   tau = ifelse(tau==0.33, d$Tau, d$Tau_4)
   log = ifelse(!adjust, d$glmm_logit, d$glmm_logit_a)
   per = ifelse(!adjust, d$glmm_percent, d$glmm_percent_a)
+  bl  = ifelse(!all, d$baseline_score, d$baseline_score_all)
+  sd = ifelse(!all, d$sd1, d$sd2)
   
-  f0 = glue::glue(
-    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p0*100}%\">{rc}</span>"
+  fmean = glue::glue(
+    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; font-weight: normal; border-radius: 4px; padding-right: 2px; background-color: rgb(211,211,211, 0.4); width: {pmean/80*100}%\">{pmean}/80</span>"
+  )
+  fbl = glue::glue(
+    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext;  font-weight: normal; border-radius: 4px; padding-right: 2px; background-color: rgb(211,211,211, 0.4); width: {pbl/80*100}%\">{pbl}/80</span>"
+  )
+  fvar = glue::glue(
+    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext;  font-weight: normal; border-radius: 4px; padding-right: 2px; background-color: rgb(211,211,211, 0.4); width: {psd/80*100}%\">{psd}/80</span>"
   )
   f1 = glue::glue(
-    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p1*100}%\">{smd}</span>"
+    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p1/80*100}%\">{p1}/80</span>"
   )
   f2 = glue::glue(
-    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p2*100}%\">{pmg}</span>"
+    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p2/80*100}%\">{p2}/80</span>"
   )
   f3 = glue::glue(
-    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p3*100}%\">{tau}</span>"
+    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p3/80*100}%\">{p3}/80</span>"
   )
   f4 = glue::glue(
-    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p4*100}%\">{log}</span>"
+    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p4/80*100}%\">{p4}/80</span>"
   )
   f5 = glue::glue(
-    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p5*100}%\">{per}</span>"
+    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p5/80*100}%\">{p5}/80</span>"
   )
   
   
   dat = tibble(
     `Effect Size` = c(
-      "Mean Change",
       "<em>d</em><sub>BR</sub>",
       "PMG",
       "Tau-U",
       "GLMM<sub>logit</sub>",
-      "GLMM<sub>percent</sub>"
+      "GLMM<sub>percent</sub>",
+      "",
+      "<span style=\"font-weight:normal;\">Mean Change</span>",
+      #"<span style=\"font-weight:normal;\">Baseline Mean</span>",
+      "<span style=\"font-weight:normal;\"><em>sd</em><sub>baseline</sub></span>"
     ),
-    `Value` = c(f0, f1, f2, f3, f4, f5)
+    `Value` = c(smd, pmg, tau, log, per, "", rc, sd),
+    `Percentile Rank` = c(f1, f2, f3, f4, f5, "", fmean, fvar)
   )
   
   t = kable(dat,
             format = "html",
-            escape = FALSE,
-            col.names = NULL) %>%
-    kable_styling(full_width = T) %>%
-    column_spec(1, width = "150px", bold = TRUE) %>%
+            escape = FALSE) %>%
+    kable_styling(full_width = T, bootstrap_options = "condensed") %>%
+    column_spec(1, width = "250px", bold = TRUE) %>%
     column_spec(2,
                 width = "200px",
-                bold = TRUE,
-                tooltip = "Blue bar indicates percentage rank relative to all 80 series")
+                bold = FALSE,
+                tooltip = "Blue bar indicates percentage rank relative to all 80 series") %>%
+    column_spec(3, width = "400px")
   
   return(t)
   
@@ -184,8 +217,20 @@ get_plotDat <- function(v, number) {
 
 
 
-sced_plot <- function(v, cap = FALSE) {
+sced_plot <- function(v, cap = FALSE, all = FALSE) {
   plotdat = v[[1]]
+  print(head(plotdat))
+  
+  if(all){
+    plotdat = plotdat %>%
+      mutate(
+        spt2017 = as.character(spt2017),
+        spt2017 = factor(
+          ifelse(phase == "baseline", "Used", spt2017),
+          levels = c("Used", "Not Used"))
+      ) 
+  }
+  
   plot_mapping = v[[2]]
   limits = v[[3]]
   title = paste0(v[[4]][1], "; ", v[[4]][2], "; ", v[[4]][3])
@@ -211,7 +256,7 @@ sced_plot <- function(v, cap = FALSE) {
       limits = c(1, last_session)
     ) +
     scale_y_continuous(limits = limits, labels = ifelse(v[[5]] == "Percent Accuracy", scales::percent, scales::number)) +
-    labs(y = v[[5]]) +
+    labs(y = v[[5]], color = "Used to ") +
     theme_minimal(base_size = 16) +
     theme(
       axis.line = element_line(),
@@ -220,7 +265,7 @@ sced_plot <- function(v, cap = FALSE) {
     )
   
   if (cap) {
-    p = p + guides(fill = "none", shape = "none")
+    p = p + guides(fill = "none", shape = "none", color = "none")
   } else {
     p = p + guides(fill = "none", color = "none", shape = "none")
   }

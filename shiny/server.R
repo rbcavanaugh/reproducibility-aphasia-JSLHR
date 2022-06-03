@@ -23,8 +23,8 @@ shinyServer(function(input, output, session) {
       values$condition2 = input$condition2
       values$itemType1 = input$itemType1
       values$itemType2 = input$itemType2
-      values$adjust = input$adjust
-      values$all = input$all
+      values$adjust = ifelse(input$adjust=="t", TRUE, FALSE)
+      values$all = ifelse(input$all=="t", TRUE, FALSE)
       values$tau = input$tau
       values$ok = "ok"
     })
@@ -34,12 +34,12 @@ shinyServer(function(input, output, session) {
     output$plot1 <- renderPlot({
       req(values$ok)
        plotdat1 = get_plotDat(v=values, "1")
-       sced_plot(plotdat1, cap = FALSE)
+       sced_plot(plotdat1, cap = FALSE, all = values$all)
     })
     
     output$plot2 <- renderPlot({
       plotdat2 = get_plotDat(v=values, "2")
-      sced_plot(plotdat2, cap = TRUE)
+      sced_plot(plotdat2, cap = TRUE, all = values$all)
     })
     
     output$t1 <- function(){

@@ -22,29 +22,29 @@ SMD_br <-  function(data){ # outcome, phase, bl_phase, tx_phase
     cat("Error: Too many phonemes in dataset")
   }
   
-  phonemes = data %>% group_by(phoneme, session, spt2017, phase) %>%
+  phonemes = data %>% group_by(session, spt2017, phase) %>% # removed phoneme
     summarize(correct = sum(correct), .groups = "drop")
   
   baseline_mean  = phonemes %>% filter(spt2017=="pre") %>% summarize(m=mean(correct)) %>% pull(m)
   baseline_mean_all  = phonemes %>% filter(phase == "baseline") %>% summarize(m=mean(correct)) %>% pull(m)
   
-  baseline_var  = phonemes %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
-  baseline_var_all  = phonemes %>% filter(phase == "baseline") %>% summarize(st=sd(correct)) %>% pull(st)
+  baseline_sd  = phonemes %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
+  baseline_sd_all  = phonemes %>% filter(phase == "baseline") %>% summarize(st=sd(correct)) %>% pull(st)
   
   tx_mean  = phonemes %>% filter(spt2017=="post") %>% summarize(m=mean(correct)) %>% pull(m)
   
   note = NA
   note_all = NA
   
-  if(baseline_var > 0){
-    SMD = (tx_mean - baseline_mean) / sqrt(baseline_var)
+  if(baseline_sd > 0){
+    SMD = (tx_mean - baseline_mean) / baseline_sd
   } else {
     SMD = NA
     note = "No baseline variability to calculate SMD"
   }
   
-  if(baseline_var_all > 0){
-    SMD_all = (tx_mean - baseline_mean_all) / sqrt(baseline_var_all)
+  if(baseline_sd_all > 0){
+    SMD_all = (tx_mean - baseline_mean_all) / baseline_sd_all
   } else {
     SMD_all = NA
     note_all = "No baseline variability to calculate SMD"
@@ -53,8 +53,10 @@ SMD_br <-  function(data){ # outcome, phase, bl_phase, tx_phase
   df_smd = data.frame(
     SMD = SMD,
     SMD_all = SMD_all,
-    VAR1 = baseline_var,
-    VAR2 = baseline_var_all,
+    change = tx_mean - baseline_mean,
+    chnage_all = tx_mean - baseline_mean_all,
+    sd1 = baseline_sd,
+    sd2 = baseline_sd_all,
     note = note,
     note = note_all
   )
@@ -186,6 +188,7 @@ PMG = function(phase, outcome, nitems, bl_phase, tx_phase, exclude_missing = FAL
   # calculate means
   mean_bl = mean(dat[dat$phase==bl_phase,"outcome"])
   mean_tx = mean(dat[dat$phase==tx_phase, "outcome"])
+  sd_bl = sd(dat[dat$phase==bl_phase,"outcome"])
   nitems = unique(nitems)
   
   # pmg is the difference in raw score minus the number of items
@@ -198,6 +201,7 @@ PMG = function(phase, outcome, nitems, bl_phase, tx_phase, exclude_missing = FAL
     PMG = pmg_exit,
     nitems = nitems,
     baseline_score = mean_bl,
+    sd_bl = sd_bl,
     potential_change = nitems-mean_bl,
     raw_change_exit = mean_tx-mean_bl
     
@@ -244,19 +248,7 @@ getES = function(fit, itemType, condition, adjust = FALSE){
     group_by(participant) %>%
     point_interval(ES) %>%
     mutate(unit = "logit", itemType = itemType, condition = condition)
-  # 
-  # linepredOR = data %>%
-  #   add_linpred_draws(fit) %>%
-  #   ungroup() %>%
-  #   mutate(timepoint = ifelse(level_change == 0, "entry", "exit")) %>%
-  #   select(timepoint, item, .draw, .linpred, participant) %>%
-  #   pivot_wider(names_from = "timepoint", values_from = .linpred) %>%
-  #   mutate(ES = exit-entry) %>%
-  #   group_by(participant) %>%
-  #   point_interval(ES) %>%
-  #   mutate(unit = "OR", itemType = itemType, condition = condition,
-  #          ES = exp(ES), .lower = exp(.lower), .upper = exp(.upper))
-  
+
   epred = data %>%
     add_epred_draws(fit) %>%
     ungroup() %>%

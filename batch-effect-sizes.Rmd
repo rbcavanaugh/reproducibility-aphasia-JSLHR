@@ -241,11 +241,11 @@ es_gx_ra = getES(mod_gx_ra, "gx", "random")
 
 smd = 
   df_smd %>%
-  select(participant, condition, itemType, SMD, SMD_all)
+  select(participant, condition, itemType, SMD, SMD_all, sd1, sd2)
 
 pmg = 
   df_pmg %>%
-  select(participant, condition, itemType, PMG, raw_change = raw_change_exit)
+  select(participant, condition, itemType, PMG, raw_change = raw_change_exit, baseline_score)
 
 tau = 
   df_tau %>%
@@ -269,48 +269,48 @@ es = smd %>%
 ## Plot comparisons
 
 ```{r, warning = FALSE}
-p3 = ggpairs(es,
-        columns = 4:8,
-        mapping = aes(fill = itemType, color = itemType),
-        columnLabels = c("d[BR]", "PMG", "T~au-U", "GLMM~Logit", "GLMM~Percent"),
-        labeller = "label_parsed",
-         diag = list(discrete="barDiag", 
-                           continuous = wrap("densityDiag", alpha=0.5, color = "grey50" )), 
-               upper = list(#combo = wrap("box_no_facet", alpha=0.5),
-                            continuous = wrap(ggally_cor, stars = F, digits = 2)),
-        lower = list(continuous = wrap("points", alpha = 0.7, pch=21, color="grey40", size=1.5)))
-
-dropLeadingZero <- function(l){
-  lnew <- c()
-  for(i in l){
-    if(i==0){ #zeros stay zero
-      lnew <- c(lnew,"0")
-    } else if (i>1){ #above one stays the same
-      lnew <- c(lnew, as.character(i))
-    } else
-      lnew <- c(lnew, gsub("(?<![0-9])0+", "", i, perl = TRUE))
-  }
-  as.character(lnew)
-}
-
-
-p3[2,1] = p3[2,1] + scale_x_continuous(breaks = seq(0, 15, 3))
-p3[3,1] = p3[3,1] + scale_x_continuous(breaks = seq(0, 15, 3))
-p3[4,1] = p3[4,1] + scale_x_continuous(breaks = seq(0, 15, 3))
-p3[5,1] = p3[5,1] + scale_x_continuous(breaks = seq(0, 15, 3))
-
-p3[3,2] = p3[3,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
-p3[4,2] = p3[4,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
-p3[5,2] = p3[5,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
-
-p3[4,3] = p3[4,3] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
-p3[5,3] = p3[5,3] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
-
-p3[5,4] = p3[5,4] + scale_x_continuous(breaks = seq(0, 10, 2))
-
-p3[5,5] = p3[5,5] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25), limits = c(0,1))
-
-ggsave(p3, filename = here("manuscript", "p3.png"), bg = "white", width = 7, height = 6, dpi = 400)
+# p3 = ggpairs(es %>% select(-VAR1, -VAR2, -baseline_score),
+#         columns = 4:8,
+#         mapping = aes(fill = itemType, color = itemType),
+#         columnLabels = c("d[BR]", "PMG", "T~au-U", "GLMM~Logit", "GLMM~Percent"),
+#         labeller = "label_parsed",
+#          diag = list(discrete="barDiag", 
+#                            continuous = wrap("densityDiag", alpha=0.5, color = "grey50" )), 
+#                upper = list(#combo = wrap("box_no_facet", alpha=0.5),
+#                             continuous = wrap(ggally_cor, stars = F, digits = 2)),
+#         lower = list(continuous = wrap("points", alpha = 0.7, pch=21, color="grey40", size=1.5)))
+# 
+# dropLeadingZero <- function(l){
+#   lnew <- c()
+#   for(i in l){
+#     if(i==0){ #zeros stay zero
+#       lnew <- c(lnew,"0")
+#     } else if (i>1){ #above one stays the same
+#       lnew <- c(lnew, as.character(i))
+#     } else
+#       lnew <- c(lnew, gsub("(?<![0-9])0+", "", i, perl = TRUE))
+#   }
+#   as.character(lnew)
+# }
+# 
+# 
+# p3[2,1] = p3[2,1] + scale_x_continuous(breaks = seq(0, 15, 3))
+# p3[3,1] = p3[3,1] + scale_x_continuous(breaks = seq(0, 15, 3))
+# p3[4,1] = p3[4,1] + scale_x_continuous(breaks = seq(0, 15, 3))
+# p3[5,1] = p3[5,1] + scale_x_continuous(breaks = seq(0, 15, 3))
+# 
+# p3[3,2] = p3[3,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+# p3[4,2] = p3[4,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+# p3[5,2] = p3[5,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+# 
+# p3[4,3] = p3[4,3] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+# p3[5,3] = p3[5,3] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+# 
+# p3[5,4] = p3[5,4] + scale_x_continuous(breaks = seq(0, 10, 2))
+# 
+# p3[5,5] = p3[5,5] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25), limits = c(0,1))
+# 
+# ggsave(p3, filename = here("manuscript", "p3.png"), bg = "white", width = 7, height = 6, dpi = 400)
 
 ```
 
@@ -351,7 +351,7 @@ pmg_all = df %>%
   group_by(participant, condition, itemType) %>%
   summarize(PMG(outcome = correct, phase = phase, nitems = trials,
                 bl_phase = "baseline", tx_phase = "treatment"), .groups = "drop") %>%
-  select(participant, condition, itemType, PMG_all = PMG, raw_change_all = raw_change_exit)
+  select(participant, condition, itemType, PMG_all = PMG, raw_change_all = raw_change_exit, baseline_score_all = baseline_score)
 
 tau = 
   df_tau %>%
