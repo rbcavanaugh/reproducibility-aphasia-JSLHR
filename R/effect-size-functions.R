@@ -8,99 +8,120 @@
 ###########################################################
 # Standardized Mean Difference {SingleCaseES} -------------
 ###########################################################
-# note that I submitted an issue to have bl_sd added to the package
-# function but for now this is the best way to do it to 
-# return it with the batch functions here. 
 # current issue with the SingleCaseES function is that it
 # returns an error with BLVAR is 0, instead of NA and a warning
+# The authors of the package are in the process of updating this
+# but for now here is a custom function. It is likely that the 
+# batch calculator for SMD from the SingleCaseES package will
+# be a better choice in the near future. 
 
-SMD_br <-  function(data){ # outcome, phase, bl_phase, tx_phase
+# returns a dataframe with 8 columns
+# SMD: SMD calculated per Wambaugh et al., 2017 using the last 5 baseline 
+# sessions and last two treatment sessions
+# SMD_all: SMD calculated using all baseline sessions and the last two treatmetn
+# sessions. 
+# change: the raw change score from the last five baseline sessions to last
+# two treatment sessions
+# change_all: the raw change using all the baseline sessions
+# sd: the standard deviation for the last-5 baseline sessions
+# sd_all: the standard deviation for all baseline sessions
+# note & note_all: notes whether or not there was zero variance in the baseline phase
+
+SMD_br <-  function(phase, outcome, bl_phase, tx_phase){
   
-  phonemes = unique(data$phoneme)
-
-  if(length(phonemes)>2){
-    cat("Error: Too many phonemes in dataset")
+  # create a dataframe of the input data
+  dat = data.frame(
+    phase = phase,
+    outcome = outcome
+  )
+  
+  # check for NA values
+  if(sum(is.na(dat$outcome))>=1){
+    stop("Error: NA values detected in A or B data. Check data or
+         set `exclude_missing` to TRUE.")
   }
   
-  phonemes = data %>% group_by(session, spt2017, phase) %>% # removed phoneme
-    summarize(correct = sum(correct), .groups = "drop")
-  
-  baseline_mean  = phonemes %>% filter(spt2017=="pre") %>% summarize(m=mean(correct)) %>% pull(m)
-  baseline_mean_all  = phonemes %>% filter(phase == "baseline") %>% summarize(m=mean(correct)) %>% pull(m)
-  
-  baseline_sd  = phonemes %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
-  baseline_sd_all  = phonemes %>% filter(phase == "baseline") %>% summarize(st=sd(correct)) %>% pull(st)
-  
-  tx_mean  = phonemes %>% filter(spt2017=="post") %>% summarize(m=mean(correct)) %>% pull(m)
-  
-  note = NA
-  note_all = NA
-  
-  if(baseline_sd > 0){
-    SMD = (tx_mean - baseline_mean) / baseline_sd
+  # calculate means and standard deviation 
+  mean_bl = mean(dat[dat$phase==bl_phase,"outcome"])
+  mean_tx = mean(dat[dat$phase==tx_phase, "outcome"])
+  sd_bl = sd(dat[dat$phase==bl_phase,"outcome"])
+
+    note = NA
+
+  if(sd_bl > 0){
+    SMD = (mean_tx - mean_bl) / sd_bl
   } else {
     SMD = NA
     note = "No baseline variability to calculate SMD"
   }
   
-  if(baseline_sd_all > 0){
-    SMD_all = (tx_mean - baseline_mean_all) / baseline_sd_all
-  } else {
-    SMD_all = NA
-    note_all = "No baseline variability to calculate SMD"
-  }
-  
   df_smd = data.frame(
     SMD = SMD,
-    SMD_all = SMD_all,
-    change = tx_mean - baseline_mean,
-    chnage_all = tx_mean - baseline_mean_all,
-    sd1 = baseline_sd,
-    sd2 = baseline_sd_all,
-    note = note,
-    note = note_all
+    change = mean_tx - mean_bl,
+    sd = sd_bl,
+    note = note
   )
   
   return(df_smd)
   
 }
 
-# phoneme1 = data %>% filter(phoneme == phonemes[[1]])
-# phoneme2 = data %>% filter(phoneme == phonemes[[2]])
 
-# baseline_mean1 = phoneme1 %>% filter(spt2017=="pre") %>% summarize(m=mean(correct)) %>% pull(m)
-# baseline_mean2 = phoneme2 %>% filter(spt2017=="pre") %>% summarize(m=mean(correct)) %>% pull(m)
+###########################################################
+# Proportion of Maximal Gain {custom function} ------------
+###########################################################
+# The proportion of items gained of the possible items 
+# taking into account baseline performance. 
+# raw change - possible remaining change. 
 
-# baseline_mean1_all = phoneme1 %>% summarize(m=mean(correct)) %>% pull(m)
-# baseline_mean2_all = phoneme2 %>% summarize(m=mean(correct)) %>% pull(m)
-
-# baseline_var1 = phoneme1 %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
-# baseline_var2 = phoneme2 %>% filter(spt2017=="pre") %>% summarize(st=sd(correct)) %>% pull(st)
-
-# baseline_var1_all = phoneme1 %>% summarize(st=sd(correct)) %>% pull(st)
-# baseline_var2_all = phoneme2 %>% summarize(st=sd(correct)) %>% pull(st)
-
-# tx_mean1 = phoneme1 %>% filter(spt2017=="post") %>% summarize(m=mean(correct)) %>% pull(m)
-# tx_mean2 = phoneme2 %>% filter(spt2017=="post") %>% summarize(m=mean(correct)) %>% pull(m)
-
-# if(baseline_var1 > 0 | baseline_var2 > 0){
-#   smd_phoneme1 = (tx_mean1 - baseline_mean1) / sqrt(baseline_var1)
-#   smd_phoneme2 = (tx_mean2 - baseline_mean2) / sqrt(baseline_var2)
-#   SMD = mean(smd_phoneme1, smd_phoneme2)
-# }
-
-# if(baseline_var1 == 0 & baseline_var2 == 0){
-#   smd_phoneme1 = NA
-#   smd_phoneme2 = NA
-#   SMD = NA
-#   note = "no variance in either baseline"
-# } else if(baseline_var1==0){
-#   baseline_var1 = baseline_var2
-#   note = "used phoneme2 variance"
-# } else if (baseline_var2==0){
-#   baseline_var2 = baseline_var1
-#   note = "used phoneme1 variance"
-# }
+PMG = function(phase, outcome, nitems, bl_phase, tx_phase, exclude_missing = FALSE){
+  
+  
+  dat = data.frame(
+    phase = phase,
+    outcome = outcome,
+    nitems = nitems
+  )
+  
+  # check for NA values
+  if(sum(is.na(dat$outcome))>=1){
+    stop("Error: NA values detected in A or B data. Check data or
+         set `exclude_missing` to TRUE.")
+  }
+  
+  # make sure number of trials is not less than any one observation
+  if(any(dat$outcome > nitems)){
+    stop("Error: outcome scores cannot be greater than the number of trials.")
+  }
+  
+  # only accept a single value for n trials
+  if(length(unique(nitems))>1){
+    stop("Error: More than one value provided for nitems")
+  }
+  
+  # calculate means
+  mean_bl = mean(dat[dat$phase==bl_phase,"outcome"])
+  mean_tx = mean(dat[dat$phase==tx_phase, "outcome"])
+  sd_bl = sd(dat[dat$phase==bl_phase,"outcome"])
+  nitems = unique(nitems)
+  
+  # pmg is the difference in raw score minus the number of items
+  # available to be learned (nitems - baseline score)
+  pmg = (mean_tx-mean_bl)/(nitems-mean_bl)
+  
+  
+  # return a table with PMG, the baseline mean, and raw change score
+  pmg_table = data.frame(
+    PMG = pmg,
+    nitems = nitems,
+    baseline_score = mean_bl,
+    potential_change = nitems-mean_bl,
+    raw_change_exit = mean_tx-mean_bl
+    
+  )
+  
+  return(pmg_table)
+}
 
 
 ###########################################################
@@ -152,63 +173,6 @@ Tau_custom <- function(outcome, phase, session, bl_phase, tx_phase, cutoff = 0.3
   
 }
 
-
-###########################################################
-# Proportion of Maximal Gain {custom function} ------------
-###########################################################
-# The proportion of items gained of the possible items 
-# taking into account baseline performance. 
-# raw change - possible remaining change. 
-
-PMG = function(phase, outcome, nitems, bl_phase, tx_phase, exclude_missing = FALSE){
-  
-  
-  dat = data.frame(
-    phase = phase,
-    outcome = outcome,
-    nitems = nitems
-  )
-  
-  # check for NA values
-  if(sum(is.na(dat$outcome))>=1){
-    stop("Error: NA values detected in A or B data. Check data or
-         set `exclude_missing` to TRUE.")
-  }
-  
-  # make sure number of trials is not less than any one observation
-  if(any(dat$outcome > nitems)){
-    stop("Error: outcome scores cannot be greater than the number of trials.")
-  }
-  
-  # only accept a single value for n trials
-  if(length(unique(nitems))>1){
-    stop("Error: More than one value provided for nitems")
-  }
-  
-  # calculate means
-  mean_bl = mean(dat[dat$phase==bl_phase,"outcome"])
-  mean_tx = mean(dat[dat$phase==tx_phase, "outcome"])
-  sd_bl = sd(dat[dat$phase==bl_phase,"outcome"])
-  nitems = unique(nitems)
-  
-  # pmg is the difference in raw score minus the number of items
-  # available to be learned (nitems - baseline score)
-  pmg_exit = (mean_tx-mean_bl)/(nitems-mean_bl)
-  
-  
-  # return a table with PMG, the baseline mean, and raw change score
-  pmg_table = data.frame(
-    PMG = pmg_exit,
-    nitems = nitems,
-    baseline_score = mean_bl,
-    sd_bl = sd_bl,
-    potential_change = nitems-mean_bl,
-    raw_change_exit = mean_tx-mean_bl
-    
-  )
-  
-  return(pmg_table)
-}
 
 
 ###########################################################

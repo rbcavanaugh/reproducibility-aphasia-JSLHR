@@ -15,7 +15,7 @@ shinyServer(function(input, output, session) {
     values = reactiveValues()
     
     observe({
-      values$collapse = input$collapse
+      
       values$outcome = ifelse(input$outcome, "count", "accuracy")
       values$participant1 = input$participant1
       values$participant2 = input$participant2
@@ -24,6 +24,8 @@ shinyServer(function(input, output, session) {
       values$itemType1 = input$itemType1
       values$itemType2 = input$itemType2
       values$adjust = ifelse(input$adjust=="t", TRUE, FALSE)
+      values$phoneme = ifelse(input$phoneme=="across", TRUE, FALSE)
+      values$collapse = ifelse(input$phoneme=="across", TRUE, FALSE)
       values$all = ifelse(input$all=="t", TRUE, FALSE)
       values$tau = input$tau
       values$ok = "ok"
@@ -43,25 +45,46 @@ shinyServer(function(input, output, session) {
     })
     
     output$t1 <- function(){
-      get_table(values$participant1, values$condition1, values$itemType1, values$adjust, values$all, values$tau)
+      get_table(values$participant1,
+                values$condition1,
+                values$itemType1,
+                values$adjust,
+                values$all,
+                values$tau,
+                values$phoneme)
     }
     
     output$t2 <- function(){
-      get_table(values$participant2, values$condition2, values$itemType2, values$adjust, values$all, values$tau)
+      get_table(values$participant2,
+                values$condition2,
+                values$itemType2,
+                values$adjust,
+                values$all,
+                values$tau,
+                values$phoneme)
     }
     
     showModal(modalDialog(
-      title = "Reproducibility in Small-N Designs",
+      title = "Reproducibility in small-N treatment research in aphasia and related disorders: a tutorial",
       includeMarkdown("details.md"),
       easyClose = TRUE,
-      size = "l", 
+      size = "xl", 
       footer = modalButton("Get Started"),
     ))
     
     observeEvent(input$about, {
       showModal(modalDialog(
-        title = "Reproducibility in Small-N Designs",
+        title = "Reproducibility in small-N treatment research in aphasia and related disorders: a tutorial",
         includeMarkdown("details.md"),
+        easyClose = TRUE,
+        size = "xl"
+      ))
+    })
+    
+    observeEvent(input$matrix, {
+      showModal(modalDialog(
+        title = "Scatterplots and correlations bewteen effect sizes",
+        div(tags$img(src="p3.png", width = "90%"),style="text-align: center;"),
         easyClose = TRUE,
         size = "l"
       ))

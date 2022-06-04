@@ -1,5 +1,6 @@
 ---
-title: "Towards reproducibility in small-N treatment research in aphasiology: a tutorialy"
+title: "S2. Supplemental Matrials Part 2."
+subtitle: "Reproducibility in small-N treatment research in aphasia and related disorders: a tutorial"
 output : pdf_document
 ---
 
@@ -30,6 +31,7 @@ library(tidyverse)      # data wrangling and plotting
 # set a seed for reproducibility
 set.seed(42)
 
+# load functions that batch calculate effect sizes
 source(here("R", "effect-size-functions.R"))    
 
 ```
@@ -58,21 +60,143 @@ df <- files %>%
 
 # Calculate effect sizes
 
-
 ## *d*~BR~
 
+The following calculates *d*~BR~ using the observations used by Wambaugh et al., (2017)
+
 ```{r}
+# start with all item-level data
 df_smd = df %>%
-  filter(phase == "baseline" | phase == "treatment") %>%
+  # filter for only baseline and treatment phases included in 
+  # wambaugh 2017 smd calculation
+  filter(spt2017 == "pre" | spt2017 == "post" ) %>%
+  # for each combination of these variables
   group_by(participant, phase, condition, itemType, session,
-           spt2017, trials, phoneme) %>%
-  summarize(correct = sum(response),
-            trials = unique(trials), .groups = "drop") %>%
-  nest_by(participant, condition, itemType) %>%
-  summarize(SMD_br(data), .groups = "drop")
+           spt2017) %>%
+  # calculate the number of correct responses
+  # this ends with the number of correct responses per session
+  # per participant, condition, and itemType
+  summarize(correct = sum(response), .groups = "drop") %>%
+  group_by(participant, condition, itemType) %>%
+  summarize(SMD_br(outcome = correct, phase = spt2017,
+                bl_phase = "pre", tx_phase = "post"), .groups = "drop")
+```
+
+The following calculates *d*~BR~ using all baseline observations
+
+```{r}
+# start with all item-level data
+df_smd_all = df %>%
+  # filter for only baseline and treatment phases included in 
+  # wambaugh 2017 smd calculation
+  filter(phase == "baseline" | phase == "treatment" & spt2017 == "post") %>%
+  # for each combination of these variables
+  group_by(participant, phase, condition, itemType, session,
+           spt2017) %>%
+  # calculate the number of correct responses
+  # this ends with the number of correct responses per session
+  # per participant, condition, and itemType
+  summarize(correct = sum(response), .groups = "drop") %>%
+  group_by(participant, condition, itemType) %>%
+  summarize(SMD_br(outcome = correct, phase = phase,
+                bl_phase = "baseline", tx_phase = "treatment"), .groups = "drop")
+```
+
+The following calculates *d*~BR~ for each phoneme, and then averaging the two scores,
+using the last 5 baseline observations
+
+```{r}
+df_smd_phoneme = df %>%
+  # filter for only baseline and treatment phases included in 
+  # wambaugh 2017 smd calculation
+  filter(spt2017 == "pre" | spt2017 == "post" ) %>%
+  # for each combination of these variables
+  group_by(participant, phase, condition, itemType, session,
+           spt2017, phoneme) %>%
+  # calculate the number of correct responses
+  # this ends with the number of correct responses per session
+  # per participant, condition, and itemType
+  summarize(correct = sum(response), .groups = "drop") %>%
+  group_by(participant, condition, itemType, phoneme) %>%
+  summarize(SMD_br(outcome = correct, phase = spt2017,
+                bl_phase = "pre", tx_phase = "post"), .groups = "drop")
+
+# when one phoneme has no variability in the baseline phase, use the variability 
+# from the other phoneme
+df_smd_phoneme_fix = df_smd_phoneme %>%
+  group_by(participant, condition, itemType) %>%
+  # only keep rows where there is an NA value (within the grouping)
+  filter(any(is.na(SMD))) %>%
+  # get rid of rows where all values within the grouping is NA
+  filter(!all(is.na(SMD))) %>%
+  # for each grouping pair, set the NA to the other phoneme SD
+  # then recalculate SMD if SMD is NA
+  mutate(sd = max(sd, na.rm = T),
+         SMD = ifelse(is.na(SMD), change/sd, SMD)
+         ) %>%
+  ungroup()
+
+
+# update the original data using the fixed data
+df_smd_phoneme = df_smd_phoneme %>%
+  rows_update(df_smd_phoneme_fix,
+              by = c("participant", "condition", "itemType", "phoneme")) %>%
+  group_by(participant, condition, itemType) %>%
+  summarize(SMD = mean(SMD, na.rm = T),
+            sd = mean(sd, na.rm = T),
+            imputed = ifelse(any(!is.na(note)), 1, 0),
+                      .groups = "drop")
+
+```
+
+The following calculates *d*~BR~ for each phoneme, and then averaging the two scores,
+using the last all baseline observations
+
+```{r}
+df_smd_phoneme_all = df %>%
+  # filter for only baseline and treatment phases included in 
+  # wambaugh 2017 smd calculation
+  filter(phase == "baseline" | phase == "treatment" & spt2017 == "post") %>%
+  # for each combination of these variables
+  group_by(participant, phase, condition, itemType, session,
+           spt2017, phoneme) %>%
+  # calculate the number of correct responses
+  # this ends with the number of correct responses per session
+  # per participant, condition, and itemType
+  summarize(correct = sum(response), .groups = "drop") %>%
+  group_by(participant, condition, itemType, phoneme) %>%
+  summarize(SMD_br(outcome = correct, phase = phase,
+                bl_phase = "baseline", tx_phase = "treatment"), .groups = "drop")
+
+# when one phoneme has no variability in the baseline phase, use the variability 
+# from the other phoneme
+df_smd_phoneme_all_fix = df_smd_phoneme_all %>%
+  group_by(participant, condition, itemType) %>%
+  # only keep rows where there is an NA value (within the grouping)
+  filter(any(is.na(SMD))) %>%
+  # get rid of rows where all values within the grouping is NA
+  filter(!all(is.na(SMD))) %>%
+  # for each grouping pair, set the NA to the other phoneme SD
+  # then recalculate SMD if SMD is NA
+  mutate(sd = max(sd, na.rm = T),
+         SMD = ifelse(is.na(SMD), change/sd, SMD)) %>%
+  ungroup()
+
+# update the original data using the fixed data
+df_smd_phoneme_all = df_smd_phoneme_all %>%
+  rows_update(df_smd_phoneme_all_fix,
+              by = c("participant", "condition", "itemType", "phoneme")) %>%
+  group_by(participant, condition, itemType) %>%
+  summarize(SMD = mean(SMD, na.rm = T),
+            sd = mean(sd, na.rm = T),
+            imputed = ifelse(any(!is.na(note)), 1, 0),
+            .groups = "drop")
+
 ```
 
 ## PMG
+
+The following calculates PMG using the observations used by Wambaugh et al., (2017)
 
 ```{r}
 df_pmg = df %>%
@@ -84,6 +208,20 @@ df_pmg = df %>%
   group_by(participant, condition, itemType) %>%
   summarize(PMG(outcome = correct, phase = spt2017, nitems = trials,
                 bl_phase = "pre", tx_phase = "post"), .groups = "drop")
+```
+
+The following calculates PMG using all baseline observations
+
+```{r}
+df_pmg_all = df %>%
+  filter(phase == "baseline" | phase == "treatment" & spt2017 == "post") %>%
+  group_by(participant, phase, condition, itemType, session,
+           spt2017, trials) %>%
+  summarize(correct = sum(response),
+            trials = unique(trials)*2, .groups = "drop") %>%
+  group_by(participant, condition, itemType) %>%
+  summarize(PMG(outcome = correct, phase = phase, nitems = trials,
+                bl_phase = "baseline", tx_phase = "treatment"), .groups = "drop")
 ```
 
 ## Tau-U
@@ -241,7 +379,7 @@ es_gx_ra = getES(mod_gx_ra, "gx", "random")
 
 smd = 
   df_smd %>%
-  select(participant, condition, itemType, SMD, SMD_all, sd1, sd2)
+  select(participant, condition, itemType, SMD, sd)
 
 pmg = 
   df_pmg %>%
@@ -261,56 +399,60 @@ es = smd %>%
   left_join(pmg, by = c("participant", "itemType", "condition")) %>%
   left_join(tau, by = c("participant", "itemType", "condition")) %>%
   left_join(bglmm, by = c("participant", "itemType", "condition")) %>%
-  relocate(raw_change, .after = last_col()) %>%
-  relocate(SMD_all, .before = last_col()) %>%
-  mutate(itemType = factor(itemType, levels = c("tx", "gx")))
+  mutate(itemType = factor(itemType, levels = c("tx", "gx"))) %>%
+  select(participant, condition, itemType, SMD, PMG, Tau, glmm_logit, glmm_percent)
 ```
 
 ## Plot comparisons
 
 ```{r, warning = FALSE}
-# p3 = ggpairs(es %>% select(-VAR1, -VAR2, -baseline_score),
-#         columns = 4:8,
-#         mapping = aes(fill = itemType, color = itemType),
-#         columnLabels = c("d[BR]", "PMG", "T~au-U", "GLMM~Logit", "GLMM~Percent"),
-#         labeller = "label_parsed",
-#          diag = list(discrete="barDiag", 
-#                            continuous = wrap("densityDiag", alpha=0.5, color = "grey50" )), 
-#                upper = list(#combo = wrap("box_no_facet", alpha=0.5),
-#                             continuous = wrap(ggally_cor, stars = F, digits = 2)),
-#         lower = list(continuous = wrap("points", alpha = 0.7, pch=21, color="grey40", size=1.5)))
-# 
-# dropLeadingZero <- function(l){
-#   lnew <- c()
-#   for(i in l){
-#     if(i==0){ #zeros stay zero
-#       lnew <- c(lnew,"0")
-#     } else if (i>1){ #above one stays the same
-#       lnew <- c(lnew, as.character(i))
-#     } else
-#       lnew <- c(lnew, gsub("(?<![0-9])0+", "", i, perl = TRUE))
-#   }
-#   as.character(lnew)
-# }
-# 
-# 
-# p3[2,1] = p3[2,1] + scale_x_continuous(breaks = seq(0, 15, 3))
-# p3[3,1] = p3[3,1] + scale_x_continuous(breaks = seq(0, 15, 3))
-# p3[4,1] = p3[4,1] + scale_x_continuous(breaks = seq(0, 15, 3))
-# p3[5,1] = p3[5,1] + scale_x_continuous(breaks = seq(0, 15, 3))
-# 
-# p3[3,2] = p3[3,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
-# p3[4,2] = p3[4,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
-# p3[5,2] = p3[5,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
-# 
-# p3[4,3] = p3[4,3] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
-# p3[5,3] = p3[5,3] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
-# 
-# p3[5,4] = p3[5,4] + scale_x_continuous(breaks = seq(0, 10, 2))
-# 
-# p3[5,5] = p3[5,5] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25), limits = c(0,1))
-# 
-# ggsave(p3, filename = here("manuscript", "p3.png"), bg = "white", width = 7, height = 6, dpi = 400)
+p3 = ggpairs(es,
+        columns = 4:8,
+        mapping = aes(fill = itemType, color = itemType),
+        columnLabels = c("d[BR]", "PMG", "T~au-U", "GLMM~Logit", "GLMM~Percent"),
+        labeller = "label_parsed",
+         diag = list(discrete="barDiag",
+                           continuous = wrap("densityDiag", alpha=0.5, color = "grey50" )),
+               upper = list(#combo = wrap("box_no_facet", alpha=0.5),
+                            continuous = wrap(ggally_cor, stars = F, digits = 2)),
+        lower = list(continuous = wrap("points", alpha = 0.7, pch=21, color="grey40", size=1.5)))
+
+dropLeadingZero <- function(l){
+  lnew <- c()
+  for(i in l){
+    if(i==0){ #zeros stay zero
+      lnew <- c(lnew,"0")
+    } else if (i>1){ #above one stays the same
+      lnew <- c(lnew, as.character(i))
+    } else
+      lnew <- c(lnew, gsub("(?<![0-9])0+", "", i, perl = TRUE))
+  }
+  as.character(lnew)
+}
+
+
+p3[2,1] = p3[2,1] + scale_x_continuous(breaks = seq(0, 35, 5))
+p3[3,1] = p3[3,1] + scale_x_continuous(breaks = seq(0, 35, 5))
+p3[4,1] = p3[4,1] + scale_x_continuous(breaks = seq(0, 35, 5)) +
+  scale_y_continuous(breaks = seq(0,10,2.5), limits = c(0,10))
+p3[5,1] = p3[5,1] + scale_x_continuous(breaks = seq(0, 35, 5)) +
+  scale_y_continuous(breaks = seq(0, 1, 0.25), limits = c(0, 1))
+
+p3[3,2] = p3[3,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+p3[4,2] = p3[4,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+p3[5,2] = p3[5,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+
+p3[4,3] = p3[4,3] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+p3[5,3] = p3[5,3] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+
+p3[5,4] = p3[5,4] + scale_x_continuous(breaks = seq(0, 10, 2))
+
+p3[5,5] = p3[5,5] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25), limits = c(0,1))
+
+
+
+ggsave(p3, filename = here("manuscript", "p3.png"), bg = "white", width = 7, height = 6, dpi = 400)
+ggsave(p3, filename = here("shiny", "www", "p3.png"), bg = "white", width = 7, height = 6, dpi = 400)
 
 ```
 
@@ -341,6 +483,28 @@ bglmm_adjust =
   pivot_wider(names_from = unit, values_from = ES) %>%
   rename(glmm_logit_a = logit, glmm_percent_a = pred)
 
+bglmm = 
+  bind_rows(es_tx_bl, es_tx_ra, es_gx_bl, es_gx_ra) %>%
+  select(participant, ES, unit, itemType, condition) %>%
+  pivot_wider(names_from = unit, values_from = ES) %>%
+  rename(glmm_logit = logit, glmm_percent = pred)
+
+smd = 
+  df_smd %>%
+  select(participant, condition, itemType, SMD, sd)
+
+smd_all = df_smd_all %>%
+  select(participant, condition, itemType, SMD_all = SMD, sd_all = sd)
+
+smd_phoneme = df_smd_phoneme %>%
+  select(participant, condition, itemType, SMD_phoneme = SMD, sd_phoneme = sd, imputed)
+
+smd_phoneme_all = df_smd_phoneme_all %>%
+  select(participant, condition, itemType, SMD_phoneme_all = SMD, sd_phoneme_all = sd, imputed_all = imputed)
+
+pmg = 
+  df_pmg %>%
+  select(participant, condition, itemType, PMG, raw_change = raw_change_exit, baseline_score)
 
 pmg_all = df %>%
   filter(phase == "baseline" | phase == "treatment" & spt2017 == "post") %>%
@@ -352,6 +516,7 @@ pmg_all = df %>%
   summarize(PMG(outcome = correct, phase = phase, nitems = trials,
                 bl_phase = "baseline", tx_phase = "treatment"), .groups = "drop") %>%
   select(participant, condition, itemType, PMG_all = PMG, raw_change_all = raw_change_exit, baseline_score_all = baseline_score)
+
 
 tau = 
   df_tau %>%
@@ -369,14 +534,15 @@ tau2 = df %>%
 
 
 es = smd %>%
+  left_join(smd_all, by = c("participant", "itemType", "condition")) %>%
+  left_join(smd_phoneme, by = c("participant", "itemType", "condition")) %>%
+  left_join(smd_phoneme_all, by = c("participant", "itemType", "condition")) %>%
   left_join(pmg, by = c("participant", "itemType", "condition")) %>%
+  left_join(pmg_all, by = c("participant", "itemType", "condition")) %>%
   left_join(tau, by = c("participant", "itemType", "condition")) %>%
+  left_join(tau2, by = c("participant", "itemType", "condition")) %>%
   left_join(bglmm, by = c("participant", "itemType", "condition")) %>%
   left_join(bglmm_adjust, by = c("participant", "itemType", "condition")) %>%
-  left_join(pmg_all, by = c("participant", "itemType", "condition")) %>%
-  left_join(tau2, by = c("participant", "itemType", "condition")) %>%
-  relocate(raw_change, .after = last_col()) %>%
-  relocate(SMD_all, .before = last_col()) %>%
   mutate(itemType = factor(itemType, levels = c("tx", "gx")))
 
 write.csv(es, here("shiny", "effect-sizes.csv"), row.names = FALSE)

@@ -19,7 +19,7 @@ library(formattable)
 # Define UI for application that draws a histogra
 shinyUI(page_navbar(title = "Reproducibility in small-N treatment research in aphasia and related disorders: a tutorial",
   theme = bs_theme(version=5, font_scale = 0.8),
-  tabPanel("Tab1",
+  tabPanelBody("Tab1",
   #titlePanel("Comparing effect sizes in small-N research in aphasia & relatd disorders" style = "siz"),
   tags$head(
     tags$style(HTML(".form-group {margin-bottom: .5rem;}
@@ -27,7 +27,11 @@ shinyUI(page_navbar(title = "Reproducibility in small-N treatment research in ap
                     #tau-label{margin-bottom: 0.2rem;}
                     .navbar-brand{color:black!important;}
                     .navbar.navbar-default {background-color:rgba(0,0,0,0.03)!important;}
-                    .navbar {padding-top: 0; padding-bottom: 0;}"))
+                    .navbar {padding-top: 0; padding-bottom: 0;}
+                    #condition1 .control-label{float:left;margin-right:10px;}
+                    #condition2 .control-label{float:left;margin-right:10px;}
+                    #itemType1 .control-label{float:left;margin-right:10px;}
+                    #itemType2 .control-label{float:left;margin-right:10px;}"))
     ),
     
     useShinyjs(),
@@ -36,17 +40,18 @@ shinyUI(page_navbar(title = "Reproducibility in small-N treatment research in ap
         sidebarPanel(width = 3,
             selectInput("participant1", "Participant", choices = unique(data$participant),
                         selected = paste0("P", sample(seq(1, 20, 1), 1))),
-            radioButtons("condition1", "Condition", choices = c("blocked",  "random"), inline = TRUE,
-                         selected = sample(c("blocked", "random"), 1)),
-            radioButtons("itemType1", "Item Type", choices = c("tx",  "gx"), inline = TRUE),
+            radioButtons("condition1", "Condition:", choices = c("blocked",  "random"), inline = TRUE,
+                         selected = sample(c("blocked", "random"), 1)), div(style="height:2px;"),
+
+            radioButtons("itemType1", "Item Type:", choices = c("tx",  "gx"), inline = TRUE),
             
             tags$hr(style="border-color: black;"),
           
             selectInput("participant2", "Participant", choices = unique(data$participant),
                         selected = paste0("P", sample(seq(1, 20, 1), 1))),
-            radioButtons("condition2", "Condition", choices = c("blocked",  "random"), inline = TRUE,
-                         selected = sample(c("blocked", "random"), 1)),
-            radioButtons("itemType2", "Item Type", choices = c("tx",  "gx"), inline = TRUE),
+            radioButtons("condition2", "Condition:", choices = c("blocked",  "random"), inline = TRUE,
+                         selected = sample(c("blocked", "random"), 1)), div(style="height:2px;"),
+            radioButtons("itemType2", "Item Type:", choices = c("tx",  "gx"), inline = TRUE),
             
             tags$hr(style="border-color: black;"),
         
@@ -55,9 +60,13 @@ shinyUI(page_navbar(title = "Reproducibility in small-N treatment research in ap
                          label = tags$span(HTML("<em>d</em><sub>BR</sub>")," & PMG", "baseline data"), 
                          inline = TRUE,
                          choices = c("All observations" = "t", "Last 5 observations" = "f")),
+            radioButtons("phoneme",
+                         label = tags$span(HTML("<em>d</em><sub>BR</sub>"), "calculation"), 
+                         inline = TRUE,
+                         choices = c("Across phonemes" = "across", "Within phonemes" = "within")),
             radioButtons("tau", label = "Tau-U trend cutoff", choices = c(0.33, 0.4), inline = TRUE),
             radioButtons("adjust",
-                         label = "GLMM baseline trend adjustment", inline = TRUE,
+                         label = "GLMM trend adjustment", inline = TRUE,
                          choices = c("Extrapolate trend" = "t", "Don't extrapolate" = "f")),
             
             tags$hr(style="border-color: black;"),
@@ -86,6 +95,9 @@ shinyUI(page_navbar(title = "Reproducibility in small-N treatment research in ap
         )
       ),
       !!!list(bslib::nav_spacer(),
+                bslib::nav_item(
+                  actionButton("matrix", "View Scatterplots", style = "margin-right:10px; border-color:transparent; background-color:transparent;")
+                  ),
               bslib::nav_item(
                 actionButton("about", "App Details", style = "margin-right:10px; border-color:transparent; background-color:transparent;"),
               ),

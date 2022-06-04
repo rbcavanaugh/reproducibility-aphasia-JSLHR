@@ -35,46 +35,70 @@ es = read.csv(here("effect-sizes.csv")) %>%
     rankLOG_a = rank(glmm_logit_a, ties = "max"),
     rankPER_a = rank(glmm_percent_a, ties = "max"),
     
+    rankSMDph = rank(SMD_phoneme, ties = "max", na.last = FALSE),
+    rankSMDph_a = rank(SMD_phoneme_all, ties = "max", na.last = FALSE),
+    
     rankRAW = rank(raw_change, ties = "max"),
     rankRAW_a = rank(raw_change_all, ties = "max"),
     
     rankBL = rank(baseline_score, ties = "max"),
     rankBL_a = rank(baseline_score_all, ties = "max"),
     
-    ranksd = rank(sd1, ties = "max"),
-    ranksd_a = rank(sd2, ties = "max")
+    ranksd = rank(sd, ties = "max"),
+    ranksd_a = rank(sd_all, ties = "max"),
+    ranksdph = rank(sd_phoneme, ties = "max", na.last = FALSE),
+    ranksdph_a = rank(sd_phoneme_all, ties = "max", na.last = FALSE)
     
   ) %>%
   mutate(rankSMD = ifelse(is.na(SMD), 0, rankSMD),
          rankSMD_a = ifelse(is.na(SMD_all), 0, rankSMD_a),
-         across(4:19, formatround)
+         rankSMDph = ifelse(is.na(SMD_phoneme), 0, rankSMDph),
+         rankSMDphall = ifelse(is.na(SMD_phoneme_all), 0, rankSMDph_a),
+         across(4:25, formatround),
+         SMD_phoneme = ifelse(imputed>0.5, paste0(SMD_phoneme, "*"), SMD_phoneme),
+         SMD_phoneme_all = ifelse(imputed_all>0.5, paste0(SMD_phoneme_all, "*"), SMD_phoneme_all)
   )
 
             
 
-get_table <- function(p, c, i, adjust = FALSE, all = FALSE, tau = 0.33) {
+get_table <- function(p, c, i, adjust = FALSE, all = FALSE, tau = 0.33, collapse = TRUE) {
   d = es %>%
     filter(participant == p,
            condition == c,
            itemType == i)
   
   pmean = ifelse(!all, d$rankRAW, d$rankRAW_a)  
-  p1 = ifelse(!all, d$rankSMD, d$rankSMD_a)
+  if(collapse){
+    p1 = ifelse(!all, d$rankSMD, d$rankSMD_a)
+    psd = ifelse(!all, d$ranksd, d$ranksd_a)
+  } else {
+    p1 = ifelse(!all, d$rankSMDph, d$rankSMDph_a)
+    psd = ifelse(!all, d$ranksdph, d$ranksdph_a)
+  }
+  
   p2 = ifelse(!all, d$rankPMG, d$rankPMG_a)
   p3 = ifelse(tau == 0.33, d$rankTAU, d$rankTAU_a)
   p4 = ifelse(!adjust, d$rankLOG, d$rankLOG_a)
   p5 = ifelse(!adjust, d$rankPER, d$rankPER_a)
   pbl  = ifelse(!all, d$rankBL, d$rankBL_a)
-  psd = ifelse(!all, d$ranksd, d$ranksd_a)
+  
   
   rc  = ifelse(!all, d$raw_change, d$raw_change_all)
-  smd = ifelse(!all, d$SMD, d$SMD_all)
+  
+  if(collapse){
+    smd = ifelse(!all, d$SMD, d$SMD_all)
+    sd = ifelse(!all, d$sd, d$sd_all)
+  } else {
+    smd = ifelse(!all, d$SMD_phoneme, d$SMD_phoneme_all)
+    sd = ifelse(!all, d$sd_phoneme, d$sd_phoneme_all)
+  }
+  
   pmg = ifelse(!all, d$PMG, d$PMG_all)
   tau = ifelse(tau==0.33, d$Tau, d$Tau_4)
   log = ifelse(!adjust, d$glmm_logit, d$glmm_logit_a)
   per = ifelse(!adjust, d$glmm_percent, d$glmm_percent_a)
   bl  = ifelse(!all, d$baseline_score, d$baseline_score_all)
-  sd = ifelse(!all, d$sd1, d$sd2)
+  
   
   fmean = glue::glue(
     "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; font-weight: normal; border-radius: 4px; padding-right: 2px; background-color: rgb(211,211,211, 0.4); width: {pmean/80*100}%\">{pmean}/80</span>"
@@ -86,19 +110,19 @@ get_table <- function(p, c, i, adjust = FALSE, all = FALSE, tau = 0.33) {
     "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext;  font-weight: normal; border-radius: 4px; padding-right: 2px; background-color: rgb(211,211,211, 0.4); width: {psd/80*100}%\">{psd}/80</span>"
   )
   f1 = glue::glue(
-    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p1/80*100}%\">{p1}/80</span>"
+    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: rgb(173,216,230, 0.5); width: {p1/80*100}%\">{p1}/80</span>"
   )
   f2 = glue::glue(
-    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p2/80*100}%\">{p2}/80</span>"
+    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: rgb(173,216,230, 0.5); width: {p2/80*100}%\">{p2}/80</span>"
   )
   f3 = glue::glue(
-    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p3/80*100}%\">{p3}/80</span>"
+    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: rgb(173,216,230, 0.5); width: {p3/80*100}%\">{p3}/80</span>"
   )
   f4 = glue::glue(
-    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p4/80*100}%\">{p4}/80</span>"
+    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: rgb(173,216,230, 0.5); width: {p4/80*100}%\">{p4}/80</span>"
   )
   f5 = glue::glue(
-    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: lightblue; width: {p5/80*100}%\">{p5}/80</span>"
+    "<span style=\"display: inline-block; direction: ltr; unicode-bidi: plaintext; border-radius: 4px; padding-right: 2px; background-color: rgb(173,216,230, 0.5); width: {p5/80*100}%\">{p5}/80</span>"
   )
   
   

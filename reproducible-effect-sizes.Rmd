@@ -1,5 +1,5 @@
 ---
-title: "Supplemental Materials Part 1"
+title: "S1. Supplemental Materials Part 1"
 subtitle: "Reproducibility in small-N treatment research in aphasia and related disorders: a tutorial"
 output: pdf_document
 ---
