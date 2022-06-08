@@ -2,11 +2,26 @@
 title: "S2. Supplemental Matrials Part 2."
 subtitle: "Reproducibility in small-N treatment research in aphasia and related disorders: a tutorial"
 output : pdf_document
+header-includes:
+    - \usepackage{setspace}
+    - \doublespacing
 ---
 
 ```{r setup, include = FALSE}
 library(kableExtra)
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+hook_chunk = knitr::knit_hooks$get('chunk')
+
+knitr::knit_hooks$set(chunk = function(x, options) {
+  regular_output = hook_chunk(x, options)
+  # add latex commands if chunk option singlespacing is TRUE
+  if (isTRUE(options$singlespacing)) 
+    sprintf("\\singlespacing\n %s \n\\doublespacing", regular_output)
+  else
+    regular_output
+})
+
+knitr::opts_chunk$set(echo = TRUE, singlespacing = TRUE,
+                      fig.height = 4, fig.width = 6, fig.align = "center")
 ```
 
 # Introduction
@@ -17,7 +32,7 @@ This document details the code batch calculate effect sizes.
 
 ## Load packages
 
-```{r}
+```{r, warning = FALSE, message = FALSE}
 library(here)           # for locating files
 library(GGally)         # Plotting
 library(SingleCaseES)   # calculating SMD, Tau-U
@@ -409,7 +424,6 @@ es_gx_ra = glmmES(mod_gx_ra, "gx", "random")
 
 # Pull the effect sizes together to create a correlation plot
 
-This is figure 3. in the manuscript
 
 ```{r}
 # select only the necessary columns
@@ -431,7 +445,7 @@ bglmm =
   bind_rows(es_tx_bl, es_tx_ra, es_gx_bl, es_gx_ra) %>%
   select(participant, ES, unit, itemType, condition) %>%
   pivot_wider(names_from = unit, values_from = ES) %>%
-  rename(glmm_logit = logit, glmm_percent = pred)
+  rename(glmm_logit = logit, glmm_percent = percent)
 # join all the effect sizes together
 es = smd %>%
   left_join(pmg, by = c("participant", "itemType", "condition")) %>%
@@ -442,6 +456,9 @@ es = smd %>%
 ```
 
 ## Plot comparisons
+
+This is figure 3. in the manuscript. Code hidden due to length. 
+
 
 ```{r, warning = FALSE, echo = FALSE}
 # Create the correlation matrix
@@ -532,13 +549,13 @@ bglmm_adjust =
   bind_rows(es_tx_bl_adjust, es_tx_ra_adjust, es_gx_bl_adjust, es_gx_ra_adjust) %>%
   select(participant, ES, unit, itemType, condition) %>%
   pivot_wider(names_from = unit, values_from = ES) %>%
-  rename(glmm_logit_a = logit, glmm_percent_a = pred)
+  rename(glmm_logit_a = logit, glmm_percent_a = percent)
 
 bglmm = 
   bind_rows(es_tx_bl, es_tx_ra, es_gx_bl, es_gx_ra) %>%
   select(participant, ES, unit, itemType, condition) %>%
   pivot_wider(names_from = unit, values_from = ES) %>%
-  rename(glmm_logit = logit, glmm_percent = pred)
+  rename(glmm_logit = logit, glmm_percent = percent)
 
 smd = 
   df_smd %>%

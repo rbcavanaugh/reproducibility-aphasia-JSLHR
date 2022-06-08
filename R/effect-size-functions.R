@@ -178,30 +178,63 @@ Tau_custom <- function(outcome, phase, session, bl_phase, tx_phase, cutoff = 0.3
 ###########################################################
 # GLMM LOGIT AND PERCENTAGE {custom function} ------------
 ###########################################################
-# The proportion of items gained of the possible items 
-# taking into account baseline performance. 
-# raw change - possible remaining change. 
+
+# To do this efficiently, we wrote a function which takes arguments for the model object,
+# and an argument we called "adjust" that can be TRUE if we would like to extrapolate the
+# baseline slope through the end of treatment and FALSE otherwise. The default is FALSE.
+# 
+# The function works be selecting rows for each participant and item in the data
+# and estimating the posterior distribution for the values in each row.
+# 
+# Then the data is transformed and the posterior distribution
+# at the beginning of treatment (or at the end of treatment without the 
+#                                level change and slope change parameters) is subtracted from the posterior
+# distribution at the end of treatment. 
+# 
+# The resulting posterior distribution characterized the magnitude of change, 
+# the mean or median can be used as a point estimate and the middle 95%
+# of the distribution is the 95% credible interval. 
 
 glmmES = function(fit, itemType, condition, adjust = FALSE){
   
+  # start with the data that went into the model,
+  # for each participant and phase (here we just used level_change
+  # because they are equivalent) make a new variable called last_session
+  # which is the highest value of the baseline slope coefficient
+  # then filter for only rows where the baseline slope is 
+  # equal to the highest value in the phase (in other words
+  # this selects the last baseline and last treatment session).
+  # Remove the response column, reduce the data frame to only the
+  # unique rows
+  data = fit$data %>%
+    group_by(level_change, participant) %>% 
+    mutate(last_session = max(baseline_slope)) %>%
+    filter(baseline_slope == last_session) %>%
+    select(-response) %>%
+    distinct() 
+  # If adjust is TRUE, then for each participant, 
+  # set the baseline slope to always equal the highest value
+  # of baseline slope. 
+  # in other words, we end up with a row where baseline slope
+  # represents the last treatment session, but level and slope
+  # change are still zero.
   if(adjust){
-    data = fit$data %>%
-      group_by(level_change, participant) %>% 
-      mutate(last_session = max(baseline_slope)) %>%
-      filter(baseline_slope == last_session) %>%
-      select(-response) %>%
-      distinct() %>%
+    data = data %>%
       group_by(participant) %>%
       mutate(baseline_slope = max(baseline_slope))
-  } else {
-    data = fit$data %>%
-      group_by(level_change, participant) %>%
-      mutate(last_session = max(baseline_slope)) %>%
-      filter(baseline_slope == last_session) %>%
-      select(-response) %>%
-      distinct() 
   }
-
+  
+  # calculate an effect size in logits or log-odds
+  # start with the data frame we just created and add
+  # model draws from the linear/link-level predictor
+  # change timepoint to entry if level change is 
+  # 0 and exit if 1. Select only the needed columns
+  # and take the data from long to wide. using pivot_wider
+  # Then subtract the value for the draw for entry from 
+  # the draw for exit. 
+  # then for each participant, calculate the point
+  # estimate and interval using point_interval
+  # the last line just adds a column indicating this effect size is in logits
   linepred = data %>%
     add_linpred_draws(fit) %>%
     ungroup() %>%
@@ -212,7 +245,9 @@ glmmES = function(fit, itemType, condition, adjust = FALSE){
     group_by(participant) %>%
     point_interval(ES) %>%
     mutate(unit = "logit", itemType = itemType, condition = condition)
-
+  
+  # This block does the same thing, except using the expectation of the
+  # posterior (i.e., in percent correct terms) 
   epred = data %>%
     add_epred_draws(fit) %>%
     ungroup() %>%
@@ -222,7 +257,7 @@ glmmES = function(fit, itemType, condition, adjust = FALSE){
     mutate(ES = exit-entry) %>% 
     group_by(participant) %>%
     point_interval(ES) %>%
-    mutate(unit = "pred", itemType = itemType, condition = condition)
+    mutate(unit = "percent", itemType = itemType, condition = condition)
   
   return(bind_rows(linepred, epred))
 }
