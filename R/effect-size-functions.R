@@ -182,7 +182,7 @@ Tau_custom <- function(outcome, phase, session, bl_phase, tx_phase, cutoff = 0.3
 # taking into account baseline performance. 
 # raw change - possible remaining change. 
 
-getES = function(fit, itemType, condition, adjust = FALSE){
+glmmES = function(fit, itemType, condition, adjust = FALSE){
   
   if(adjust){
     data = fit$data %>%

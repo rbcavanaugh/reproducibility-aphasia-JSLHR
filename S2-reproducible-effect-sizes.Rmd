@@ -15,7 +15,7 @@ This document details the code batch calculate effect sizes.
 
 # Setup 
 
-## Load packages and functions
+## Load packages
 
 ```{r}
 library(here)           # for locating files
@@ -31,9 +31,22 @@ library(tidyverse)      # data wrangling and plotting
 # set a seed for reproducibility
 set.seed(42)
 
-# load functions that batch calculate effect sizes
-source(here("R", "effect-size-functions.R"))    
+```
 
+## Load effect size functions
+
+For this analysis, we created a number of custom effect size functions. Functions
+serve to isolate complex code that serves a specific purpose from code used
+in the primary analysis. These functions are in in many way specific to the 
+present data set, but were created to be generalizable to other similar data.
+The functions are in a file called `effect-size-functions.R` and are highly 
+commented to explain each step. 
+
+```{r}
+# load functions that batch calculate effect sizes
+source(here("R", "effect-size-functions.R"))   
+# print the four functions
+ls()
 ```
 
 ## Read in data
@@ -142,6 +155,9 @@ df_smd_phoneme = df_smd_phoneme %>%
   rows_update(df_smd_phoneme_fix,
               by = c("participant", "condition", "itemType", "phoneme")) %>%
   group_by(participant, condition, itemType) %>%
+  # summarize the smd and sd across phonemes 
+  # note whether or not the sd was used from the other phoneme
+  # incases where variability was zero
   summarize(SMD = mean(SMD, na.rm = T),
             sd = mean(sd, na.rm = T),
             imputed = ifelse(any(!is.na(note)), 1, 0),
@@ -200,9 +216,14 @@ The following calculates PMG using the observations used by Wambaugh et al., (20
 
 ```{r}
 df_pmg = df %>%
+  # This uses the observations used in wambaugh et al., 2017
   filter(spt2017 == "pre" | spt2017 == "post" ) %>%
   group_by(participant, phase, condition, itemType, session,
            spt2017, trials) %>%
+  # calculate the number of correct responses
+  # this ends with the number of correct responses per session
+  # per participant, condition, and itemType
+  # also calculate the number of trials which is necessary for PMG
   summarize(correct = sum(response),
             trials = unique(trials)*2, .groups = "drop") %>%
   group_by(participant, condition, itemType) %>%
@@ -217,6 +238,10 @@ df_pmg_all = df %>%
   filter(phase == "baseline" | phase == "treatment" & spt2017 == "post") %>%
   group_by(participant, phase, condition, itemType, session,
            spt2017, trials) %>%
+  # calculate the number of correct responses
+  # this ends with the number of correct responses per session
+  # per participant, condition, and itemType
+  # also calculate the number of trials which is necessary for PMG
   summarize(correct = sum(response),
             trials = unique(trials)*2, .groups = "drop") %>%
   group_by(participant, condition, itemType) %>%
@@ -228,10 +253,15 @@ df_pmg_all = df %>%
 
 ```{r}
 df_tau = df %>%
+  # filter for all obseravtions in the baseline and
+  # treatment phase. 
   filter(phase == "baseline" | phase == "treatment") %>%
   group_by(participant, phase, condition, itemType, session) %>%
+  # add up the number of correct responses
   summarize(correct = sum(response), .groups = "drop") %>%
   group_by(participant, condition, itemType) %>%
+  # This calls a custom Tau function which uses Tau-U
+  # in cases where the trend is >= the cutoff value
   summarize(Tau_custom(outcome = correct, phase = phase, 
                        bl_phase = "baseline", tx_phase = "treatment",
                        session = session, cutoff = 0.33), .groups = "drop")
@@ -251,44 +281,42 @@ df_itts_group = df %>%
          phoneme, item, baseline_slope, level_change, slope_change) 
 ```
 
-```{r, include = FALSE}
-
-# df_itts_group = df %>%
-#   filter(phase == "baseline" | phase == "treatment") %>%
-#   left_join(bl_sessions, by = c("participant", "itemType", "condition")) %>%
-#   mutate(baseline_slope = session,
-#          level_change = ifelse(phase == "baseline", 0, 1),
-#          slope_change = (session - (max_bl+2))*level_change,
-#          obs = 1) %>%
-#   select(response, participant, condition, itemType, phase,
-#          trials, baseline_slope, level_change, slope_change, obs) %>%
-#   group_by(baseline_slope, level_change, slope_change, participant, condition, itemType) %>%
-#   summarize(correct = sum(response),
-#             trials = sum(obs)) 
-```
-
+*Note that we would typically use n_baselines+1 if we sampled performance at every treatment session*
 
 ### Blocked Treated
 
 ```{r}
 
   mod_tx_bl <- brm(
+    # outcome variable response
+    # the 0 a+ Intercept syntax llows us to put a non-centered prior on the intercept
+    # the population-level effects (fixed effects in frequentist terminology)
+    # are baseline_slope, level_change, and slope_change. The group-level
+    # effects (random effects) are in parentheses. 
     response ~ 0 + Intercept + baseline_slope + level_change + slope_change + 
                (1 + baseline_slope + level_change + slope_change | participant) +
                (1| item),
+            # data, filtered for the itemType and condition
              data = df_itts_group %>% filter(condition == "blocked",
                                              itemType == "tx"),
-             family = bernoulli(),
-             iter = 3000,
-             warmup = 1000,
-             cores = 4, chains = 4,
+             family = bernoulli(), # special case of binomial with 1 trial
+             iter = 3000, # number of iterations
+             warmup = 1000, # number of iterations to toss
+             cores = 4, chains = 4, # 4 Markov chains across 4 computer cores
+             # prior distributions include a specific prior on the intercept 
+             # and a general prior on the population-level effects
              prior = c(
                prior(normal(-1, 2.5), class = b, coef = Intercept),
                prior(normal(0, 2.5), class = b)
              ),
+            # because of divergent transitions see
+            # cran.r-project.org/web/packages/brms/vignettes/brms_overview.pdf
              control = list(adapt_delta = 0.9),
-             seed = 42,
+            # set a seed for reproducibility
+             seed = 42, 
+            # save the model so we don't have to refit it every time we compile
              file = "models/mod_tx_bl",
+            # only refit the model when something changes
              file_refit = "on_change"
   )
 ```
@@ -369,32 +397,42 @@ df_itts_group = df %>%
   
 ```
 
-# Pull the effect sizes together and plot
+Calculate effect sizes for each model. The function takes as arguments
+the model object the itemtype and condition. 
 
 ```{r}
-es_tx_bl = getES(mod_tx_bl, "tx", "blocked")
-es_tx_ra = getES(mod_tx_ra, "tx", "random")
-es_gx_bl = getES(mod_gx_bl, "gx", "blocked")
-es_gx_ra = getES(mod_gx_ra, "gx", "random")
+es_tx_bl = glmmES(mod_tx_bl, "tx", "blocked")
+es_tx_ra = glmmES(mod_tx_ra, "tx", "random")
+es_gx_bl = glmmES(mod_gx_bl, "gx", "blocked")
+es_gx_ra = glmmES(mod_gx_ra, "gx", "random")
+```
 
+# Pull the effect sizes together to create a correlation plot
+
+This is figure 3. in the manuscript
+
+```{r}
+# select only the necessary columns
 smd = 
   df_smd %>%
   select(participant, condition, itemType, SMD, sd)
-
+# select only the necessary columns
 pmg = 
   df_pmg %>%
   select(participant, condition, itemType, PMG, raw_change = raw_change_exit, baseline_score)
-
+# select only the necessary columns
 tau = 
   df_tau %>%
   select(participant, condition, itemType, Tau = Est)
-
+# combine the effect sizes from each of the conditions
+# from the bayesian models then
+# select only the necessary columns
 bglmm = 
   bind_rows(es_tx_bl, es_tx_ra, es_gx_bl, es_gx_ra) %>%
   select(participant, ES, unit, itemType, condition) %>%
   pivot_wider(names_from = unit, values_from = ES) %>%
   rename(glmm_logit = logit, glmm_percent = pred)
-
+# join all the effect sizes together
 es = smd %>%
   left_join(pmg, by = c("participant", "itemType", "condition")) %>%
   left_join(tau, by = c("participant", "itemType", "condition")) %>%
@@ -405,18 +443,20 @@ es = smd %>%
 
 ## Plot comparisons
 
-```{r, warning = FALSE}
+```{r, warning = FALSE, echo = FALSE}
+# Create the correlation matrix
+# select only the necessary columns
 p3 = ggpairs(es,
         columns = 4:8,
         mapping = aes(fill = itemType, color = itemType),
         columnLabels = c("d[BR]", "PMG", "T~au-U", "GLMM~Logit", "GLMM~Percent"),
         labeller = "label_parsed",
-         diag = list(discrete="barDiag",
-                           continuous = wrap("densityDiag", alpha=0.5, color = "grey50" )),
-               upper = list(#combo = wrap("box_no_facet", alpha=0.5),
-                            continuous = wrap(ggally_cor, stars = F, digits = 2)),
+        diag = list(discrete="barDiag",
+                         continuous = wrap("densityDiag", alpha=0.5, color = "grey50" )),
+             upper = list(#combo = wrap("box_no_facet", alpha=0.5),
+                          continuous = wrap(ggally_cor, stars = F, digits = 2)),
         lower = list(continuous = wrap("points", alpha = 0.7, pch=21, color="grey40", size=1.5)))
-
+# function to limit the number of digits
 dropLeadingZero <- function(l){
   lnew <- c()
   for(i in l){
@@ -430,7 +470,7 @@ dropLeadingZero <- function(l){
   as.character(lnew)
 }
 
-
+# fix the x and y axis scales in each scatterplot and density plot
 p3[2,1] = p3[2,1] + scale_x_continuous(breaks = seq(0, 35, 5))
 p3[3,1] = p3[3,1] + scale_x_continuous(breaks = seq(0, 35, 5))
 p3[4,1] = p3[4,1] + scale_x_continuous(breaks = seq(0, 35, 5)) +
@@ -449,33 +489,44 @@ p3[5,4] = p3[5,4] + scale_x_continuous(breaks = seq(0, 10, 2))
 
 p3[5,5] = p3[5,5] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25), limits = c(0,1))
 
-
-
-ggsave(p3, filename = here("manuscript", "p3.png"), bg = "white", width = 7, height = 6, dpi = 400)
+ggsave(p3, filename = here("tables-figures", "p3.png"), bg = "white", width = 7, height = 6, dpi = 400)
 ggsave(p3, filename = here("shiny", "www", "p3.png"), bg = "white", width = 7, height = 6, dpi = 400)
 
+p3
+
 ```
 
 
-```{r, include = FALSE}
-# 
-#   es %>% ungroup() %>%
-#   select(3:8) %>%
-#   mutate(itemType = factor(
-#     ifelse(itemType == "gx", "Generalization", "Treated"),
-#     levels = c("Treated", "Generalization"))) %>%
-#   gtsummary::tbl_summary(by="itemType",
-#               missing_text = "N/A",
-#               statistic = list(gtsummary::all_continuous() ~ "{median} ({min}, {max})"))
+```{r, include = FALSE, eval = FALSE}
+library(gtsummary)
+library(flextable)
+library(officer)
+
+t3 = es %>% ungroup() %>%
+  select(3:8) %>%
+  mutate(itemType = factor(
+    ifelse(itemType == "gx", "Generalization", "Treated"),
+    levels = c("Treated", "Generalization"))) %>%
+  gtsummary::tbl_summary(by="itemType",
+              missing_text = "N/A",
+              statistic = list(gtsummary::all_continuous() ~ "{mean} ({min}, {max})")) %>%
+  gtsummary::as_flex_table()
+
+doc <- read_docx("template.docx")
+doc <- body_add_flextable(doc, value = t3)
+fileout <- "table3.docx" # uncomment to write in your working directory
+print(doc, target = fileout)
 ```
 
-
 ```{r, include = FALSE}
+# This code creates data for the shiny app
+# not included in the rmarkdown document
 
-es_tx_bl_adjust = getES(mod_tx_bl, "tx", "blocked", adjust = TRUE)
-es_tx_ra_adjust = getES(mod_tx_ra, "tx", "random", adjust = TRUE)
-es_gx_bl_adjust = getES(mod_gx_bl, "gx", "blocked", adjust = TRUE)
-es_gx_ra_adjust = getES(mod_gx_ra, "gx", "random", adjust = TRUE)
+# create effect sizes with adjusted
+es_tx_bl_adjust = glmmES(mod_tx_bl, "tx", "blocked", adjust = TRUE)
+es_tx_ra_adjust = glmmES(mod_tx_ra, "tx", "random", adjust = TRUE)
+es_gx_bl_adjust = glmmES(mod_gx_bl, "gx", "blocked", adjust = TRUE)
+es_gx_ra_adjust = glmmES(mod_gx_ra, "gx", "random", adjust = TRUE)
 
 bglmm_adjust = 
   bind_rows(es_tx_bl_adjust, es_tx_ra_adjust, es_gx_bl_adjust, es_gx_ra_adjust) %>%
@@ -506,15 +557,7 @@ pmg =
   df_pmg %>%
   select(participant, condition, itemType, PMG, raw_change = raw_change_exit, baseline_score)
 
-pmg_all = df %>%
-  filter(phase == "baseline" | phase == "treatment" & spt2017 == "post") %>%
-  group_by(participant, phase, condition, itemType, session,
-           spt2017, trials) %>%
-  summarize(correct = sum(response),
-            trials = unique(trials)*2, .groups = "drop") %>%
-  group_by(participant, condition, itemType) %>%
-  summarize(PMG(outcome = correct, phase = phase, nitems = trials,
-                bl_phase = "baseline", tx_phase = "treatment"), .groups = "drop") %>%
+pmg_all = df_pmg_all %>%
   select(participant, condition, itemType, PMG_all = PMG, raw_change_all = raw_change_exit, baseline_score_all = baseline_score)
 
 

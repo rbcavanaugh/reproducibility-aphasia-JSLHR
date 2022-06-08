@@ -6,7 +6,7 @@ output: pdf_document
 
 ```{r setup, include = FALSE}
 library(kableExtra)
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, fig.height = 4, fig.width = 6, fig.align = "center")
+knitr::opts_chunk$set(echo = TRUE, fig.height = 4, fig.width = 6, fig.align = "center")
 ```
 
 # Introduction
@@ -17,7 +17,7 @@ This document details the code needed to reproduce the analysis in section 1 of 
 
 ## Load packages and functions
 
-```{r}
+```{r, warning = FALSE, message = FALSE}
 # Uncomment and run this line to install packages if needed
 # install.packages(c("here", "SingleCaseES", "lme4",
 # "emmeans", "brms", "tidybayes", "ggdist", "tidyverse"))
@@ -64,7 +64,14 @@ df <- files %>%
 ```{r}
 head(df)
 ```
-
+```{r, include = FALSE, eval = FALSE}
+# table 2
+t2 <- flextable(head(df, 5), cwidth = 0.9)
+doc <- read_docx("template_lnd.docx")
+doc <- body_add_flextable(doc, value = t2)
+fileout <- "table2.docx" # uncomment to write in your working directory
+print(doc, target = fileout)
+```
 
 ```{r, echo = FALSE}
 cols = tibble(
@@ -88,6 +95,15 @@ cols %>%
   kable_styling(position = "center", latex_options = "HOLD_position")
 ```
 
+```{r, include = FALSE, eval = FALSE}
+#table 3
+t1 <- flextable(cols, cwidth = c(2,3))
+doc <- read_docx("template.docx")
+doc <- body_add_flextable(doc, value = t1)
+fileout <- "table1.docx" # uncomment to write in your working directory
+print(doc, target = fileout)
+```
+
 # Case example: Participant 10
 
 ## Filter data for Participant 10
@@ -103,11 +119,8 @@ P10 <- df %>%
   filter(participant == "P10",
          itemType == "tx",
          condition == "blocked") %>%
-  # summarize below will calculate the sum for each level of session, phase
-  # and spt2017
+  # calculate the sum for each level of session, phase and spt2017
   group_by(session, phase, spt2017) %>%
-  # calculates the number of correct responses for each level in group_by
-  # the .groups argument removes the grouping after summarize
   summarize(sum_correct = sum(response), .groups = "drop")
 ```
 
@@ -166,17 +179,20 @@ also includes a 95% confidence interval, as it is not clear that this
 confidence interval applies to the the *d*~BR~ modification of the original 
 within-case standardized mean difference. 
 
+$$d_{BR} = \frac{x_B- x_A}{S_A}$$
+
 ```{r}
 A = P10 %>% filter(spt2017 == "pre") %>% pull(sum_correct)
 B = P10 %>% filter(spt2017 == "post") %>% pull(sum_correct)
 
-SMD(A_data = A,
-    B_data = B)$Est
+SMD(A_data = A, B_data = B)
 ```
 
 ## Proportion of potential maximal gain
 
 There is no R package that includes a function to calculate PMG to our knowledge. However, creating such a function is relatively straightforward. A function that calculates PMG similar to the SMD() function from the {SingleCaseES} package might take the following form, with an additional argument for the number of items treated (nitems). The function calculates the mean of the A phase and B phase, and then calculates and returns the PMG value from the same data as *d*~BR~ above.
+
+$$PMG = \frac{x_B- x_A}{n_items - x_A}$$
 
 
 ```{r}
@@ -348,8 +364,8 @@ p2 = pred_dat %>%
   # extended baseline slope dashed line
   geom_line(inherit.aes = FALSE, data = new_dat2,
             aes(x=session, y = preds, group = phase), color = "darkred", alpha = 0.3, linetype = "dashed")+
-  #ggbrace::geom_brace(aes(c(8,9), c(0.19, 0.5),
-  # label = "level change"), inherit.data=F, rotate = 90, labelsize = 4, color = "darkred") +
+  ggbrace::geom_brace(aes(c(8,9), c(0.19, 0.5),
+   label = "level change"), inherit.data=F, rotate = 90, labelsize = 4, color = "darkred") +
   annotate(color = "darkred",
            geom = "curve", x = 4, y = .35, xend = 2, yend = .15, 
            curvature = .3, arrow = arrow(length = unit(2, "mm"))
@@ -417,14 +433,19 @@ $$
 \end{aligned}
 $$
 
+The first line of the equation indicates that the dependent variable takes a binomial distribution. The second line represents the extension of the Huitema & McKean (2000) model to the hierarchical case, where each fixed effect is estimated for each item, j[i]. The third line of the equation represents the random effect structure, indicating that the effect of each fixed effect (baseline slope, level change, and slope change) are allowed to vary for each item.
+
 The following shows how we arrived at the final model for P10
 
 1. First, we fit the maximal random effects structure. However, the model did not converge. 
 
 ```{r}
 mod1 <- 
-    glmer(response ~ baseline_slope + level_change + slope_change + 
-            (1 + baseline_slope + level_change + slope_change | item),
+    glmer(
+      # fixed effects
+      response ~ baseline_slope + level_change + slope_change +
+      # random effects
+       (1 + baseline_slope + level_change + slope_change | item),
           data = P10,
           family = binomial)
 ```
@@ -438,6 +459,7 @@ mod1 <-
             (1 + baseline_slope + level_change + slope_change | item),
           data = P10,
           family = binomial,
+          # for model convergence
           control = glmerControl(optimizer="bobyqa"))
 ```
 
@@ -534,9 +556,11 @@ that includes all participants.
 
 ```{r}
 df_glmm <- df %>%
+  # select the correct phase, condition, and itemType
   filter(phase == "baseline" | phase == "treatment",
          condition == "blocked",
          itemType == "tx") %>%
+  # create the Huitema model parameters
   mutate(baseline_slope = session,
          level_change = ifelse(phase == "baseline", 0, 1),
          slope_change = (baseline_slope - (n_baselines+2))*level_change,
@@ -684,17 +708,19 @@ Bayesian mixed-effects models can be used in the same fashion as model 2 above t
 
 ```{r}
 mod3 <-
- brm(response ~ 0 + Intercept + 
-     baseline_slope + level_change + slope_change + 
+ brm(
+   # population level effects
+   response ~ 0 + Intercept + baseline_slope + level_change + slope_change +
+   # group level effects
      (1 + baseline_slope + level_change + slope_change | participant) +
      (1|item),
              data = df_glmm,
-             family = bernoulli(),
-             iter = 3000,
-             warmup = 1000,
-             chains = 4,
-             seed = 42,
-             prior = c(
+             family = bernoulli(), # special case of binomial with n=1 trials
+             iter = 3000, # number of draws per chain
+             warmup = 1000, # number of draws to toss on "burn in"
+             chains = 4, # total number of chains
+             seed = 42, # set a seed
+             prior = c( # prior distributions
                prior(normal(-1, 2), class = b, coef = Intercept),
                prior(normal(0, 2.5), class = b)
              ),
@@ -831,9 +857,9 @@ getES = function(fit, adjust = FALSE){
 ```
 
 Here's how we might use the function, adjusting for baseline slope
+
 ```{r}
 bayesian_es = getES(mod3, adjust = TRUE)
-
 ```
 
 Examine the results for logits
@@ -850,10 +876,12 @@ head(bayesian_es %>% filter(unit == "percent"), 20) %>% kable(format = "latex", 
   kable_styling(position = "center")
 ```
 
-Save tables and plots for cleaning for publication
+To convert to odds ratios, exponentiate the logit effect sizes. To conver to number of
+items correct, multiply the percent gain by the number of items treated 
 
-```{r}
-save(p1, p2, file = here("manuscript", "tables-plots.RData"))
+```{r, include = FALSE}
+# Save tables and plots for cleaning for publication
+#ggsave(p1, p2, file = here("tables-figures"))
 ```
 
 ```{r}

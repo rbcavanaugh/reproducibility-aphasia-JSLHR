@@ -1,5 +1,5 @@
-load(here("manuscript", "tables-plots.RData"))
-load(here("manuscript", "tables-plots2.RData"))
+load(here("tables-figures", "tables-plots.RData"))
+load(here("tables-figures", "tables-plots2.RData"))
 
 
 # plot 1
