@@ -27,6 +27,7 @@ rob.cavanaugh@pitt.edu
 
 **Conclusion:** Pursuing reproducible research via sharing data and analytical scripts is key to promoting transparency in small-N treatment research. Researchers and clinicians need to understand the properties of common effect size measures to make informed decisions when selecting effect sizes and act as informed consumers of small-N studies. Together, a commitment to reproducibility and a keen understanding of effect sizes can improve the scientific rigor and synthesis of this evidence-base that substantially impacts clinical rehabilitation.  
 
-
 Research reported in this manuscript was supported by the National Institute of Deafness and Communication Disorders of the National Institutes of Health under award number F31DC019853-01 awarded to Robert Cavanaugh. The content is solely the responsibility of the authors and does not necessarily represent the official views of the National Institutes of Health. The contents of this manuscript were also developed under a grant from the National Institute on Disability, Independent Living, and Rehabilitation Research (NIDILRR) awarded to Yina Quique. NIDILRR is a Center within the Administration for Community Living (ACL), Department of Health and Human Services (HHS). The contents of this manuscript do not necessarily represent the policy of NIDILRR, ACL, or HHS, and you should not assume endorsement by the Federal Government.
+
+Note: Shiny app is located here: https://rb-cavanaugh.shinyapps.io/SCED/
 
