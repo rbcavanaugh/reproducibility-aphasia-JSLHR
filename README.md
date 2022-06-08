@@ -2,7 +2,7 @@
 
 **This repository contains data, analytical code, supplemental materials, and a pre-print for the above titled manuscript currently under review**
 
-Robert Cavanaugh,^1,2^ Yina M. Quique,^3^ Alexander M. Swiderski,^1,2,4^ Lydia Kallhoff,^5^ Lauren Terhorst,^6^ Julie Wambaugh,^5^ William D. Hula,^2, 1^ William S. Evans^1^
+Robert Cavanaugh,<sup>1,2</sup> Yina M. Quique,<sup>3</sup> Alexander M. Swiderski,<sup>1,2,4</sup> Lydia Kallhoff,<sup>5</sup> Lauren Terhorst,<sup>6</sup> Julie Wambaugh,<sup>5</sup> William D. Hula,<sup>2, 1</sup> William S. Evans<sup>1</sup>
 
 1. University of Pittsburgh, Department of Communication Sciences and Disorders
 2. VA Pittsburgh Healthcare System, Audiology and Speech Pathology Program
