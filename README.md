@@ -1,5 +1,7 @@
 # Reproducibility in small-N treatment research in aphasia and related disorders: a tutorial
 
+**This repository contains data, analytical code, supplemental materials, and a pre-print for the above titled manuscript currently under review**
+
 Robert Cavanaugh,^1,2^ Yina M. Quique,^3^ Alexander M. Swiderski,^1,2,4^ Lydia Kallhoff,^5^ Lauren Terhorst,^6^ Julie Wambaugh,^5^ William D. Hula,^2, 1^ William S. Evans^1^
 
 1. University of Pittsburgh, Department of Communication Sciences and Disorders
@@ -13,8 +15,8 @@ The authors have no disclosures.
 
 Key words: aphasia treatment reproducibility replication
 
-Corresponding Author:
-Robert Cavanaugh M.S. CCC-SLP
+Corresponding Author:  
+Robert Cavanaugh M.S. CCC-SLP  
 rob.cavanaugh@pitt.edu
 
 **Purpose:** Small-N studies are the dominant study design supporting evidence-based treatment studies in research on aphasia and related disorders. However, there is little guidance on conducting reproducible analysis of such studies, which has implications for scientific review, rigor, and replication. 
