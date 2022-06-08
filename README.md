@@ -1,10 +1,26 @@
+# Reproducibility in small-N treatment research in aphasia and related disorders: a tutorial
 
-# reproducibility-small-N
+Robert Cavanaugh,^1,2^ Yina M. Quique,^3^ Alexander M. Swiderski,^1,2,4^ Lydia Kallhoff,^5^ Lauren Terhorst,^6^ Julie Wambaugh,^5^ William D. Hula,^2, 1^ William S. Evans^1^
 
-## Towards reproducibility in small-N treatment research in aphasiology: a tutorial
+1. University of Pittsburgh, Department of Communication Sciences and Disorders
+2. VA Pittsburgh Healthcare System, Audiology and Speech Pathology Program
+3. Center for Education in Health Sciences, Northwestern University & Shirley Ryan Ability Lab
+4. Carnegie Mellon University, Center for Neural Basis of Cognition
+5. University of Utah, Department of Communication Sciences and Disorders
+6. University of Pittsburgh, Department of Occupational Therapy
 
-JSLHR
+The authors have no disclosures.
 
-In preparation
+Key words: aphasia treatment reproducibility replication
 
+Corresponding Author:
+Robert Cavanaugh M.S. CCC-SLP
+rob.cavanaugh@pitt.edu
 
+**Purpose:** Small-N studies are the dominant study design supporting evidence-based treatment studies in research on aphasia and related disorders. However, there is little guidance on conducting reproducible analysis of such studies, which has implications for scientific review, rigor, and replication. 
+
+**Methods:** This tutorial demonstrates how to implement reproducible analyses of small-N designs in the statistical programming language R with examples using published data from Wambaugh et al. (2017), who reported outcomes of Sound Production Treatment for post-stroke apraxia of speech and aphasia. We compare and discuss the strengths and weaknesses of small-N effect size measures to help researchers and clinicians make informed decisions around effect size selection and be informed consumers of small-N treatment research.
+
+**Results:** Tutorial code demonstrates implementation and comparison of within-case standardized mean difference, proportion of maximal gain, Tau-U, and effect sizes derived from frequentist and Bayesian mixed-effects models. Data and code are publicly available.
+
+**Conclusion:** Properties of different effect size measures can affect the interpretation, synthesis, and replication of small-N studies in aphasia and related disorders. A commitment to reproducibility along with an informed selection of effect sizes can improve the scientific rigor and transparency of this evidence-base that substantially impacts clinical rehabilitation.  
