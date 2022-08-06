@@ -4,7 +4,15 @@
 library(tidyverse)
 library(here)
 library(markdown)
+library(shiny)
+library(GGally)
 options(dplyr.summarise.inform = FALSE)
+
+set_shiny_plot_height <- function(session, output_width_name){
+  function() { 
+    session$clientData[[output_width_name]]
+  }
+}
 
 #data = read.csv(here("data.csv")) %>%
 data = read.csv(here("shiny", "data.csv")) %>%
@@ -20,6 +28,8 @@ formatround = function(b){
   return(tmp)
 }
 
+es_raw = read.csv(here("shiny", "effect-sizes.csv"))
+  
 #es = read.csv(here("effect-sizes.csv")) %>%
 es = read.csv(here("shiny", "effect-sizes.csv")) %>%
   mutate(
@@ -38,6 +48,9 @@ es = read.csv(here("shiny", "effect-sizes.csv")) %>%
     rankSMDph = rank(SMD_phoneme, ties = "max", na.last = FALSE),
     rankSMDph_a = rank(SMD_phoneme_all, ties = "max", na.last = FALSE),
     
+    rankTAU_last5 = rank(Tau_last5, ties = "max", na.last = FALSE),
+    rankTAU_a_last5 = rank(Tau_last5_4, ties = "max", na.last = FALSE),
+    
     rankRAW = rank(raw_change, ties = "max"),
     rankRAW_a = rank(raw_change_all, ties = "max"),
     
@@ -54,7 +67,7 @@ es = read.csv(here("shiny", "effect-sizes.csv")) %>%
          rankSMD_a = ifelse(is.na(SMD_all), 0, rankSMD_a),
          rankSMDph = ifelse(is.na(SMD_phoneme), 0, rankSMDph),
          rankSMDphall = ifelse(is.na(SMD_phoneme_all), 0, rankSMDph_a),
-         across(4:25, formatround),
+         across(4:27, formatround),
          SMD_phoneme = ifelse(imputed>0.5, paste0(SMD_phoneme, "*"), SMD_phoneme),
          SMD_phoneme_all = ifelse(imputed_all>0.5, paste0(SMD_phoneme_all, "*"), SMD_phoneme_all)
   )
@@ -77,7 +90,24 @@ get_table <- function(p, c, i, adjust = FALSE, all = FALSE, tau = 0.33, collapse
   }
   
   p2 = ifelse(!all, d$rankPMG, d$rankPMG_a)
-  p3 = ifelse(tau == 0.33, d$rankTAU, d$rankTAU_a)
+  # p3 = ifelse(tau == 0.33,
+  #             d$rankTAU, d$rankTAU_a)
+  
+  if(tau == 0.33){
+    if(all){
+      p3 = d$rankTAU
+    } else {
+      p3 = d$rankTAU_last5
+    }
+  } else {
+    if(all){
+      p3 = d$rankTAU_a
+    } else {
+      p3 = d$rankTAU_a_last5
+    }
+  }
+  
+  
   p4 = ifelse(!adjust, d$rankLOG, d$rankLOG_a)
   p5 = ifelse(!adjust, d$rankPER, d$rankPER_a)
   pbl  = ifelse(!all, d$rankBL, d$rankBL_a)
@@ -94,7 +124,19 @@ get_table <- function(p, c, i, adjust = FALSE, all = FALSE, tau = 0.33, collapse
   }
   
   pmg = ifelse(!all, d$PMG, d$PMG_all)
-  tau = ifelse(tau==0.33, d$Tau, d$Tau_4)
+  if(tau == 0.33){
+      if(all){
+        tau = d$Tau
+      } else {
+        tau = d$Tau_4
+      }
+  } else {
+      if(all){
+        tau = d$Tau_last5
+      } else {
+        tau = d$Tau_last5_4
+      }
+  }
   log = ifelse(!adjust, d$glmm_logit, d$glmm_logit_a)
   per = ifelse(!adjust, d$glmm_percent, d$glmm_percent_a)
   bl  = ifelse(!all, d$baseline_score, d$baseline_score_all)

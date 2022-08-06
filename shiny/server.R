@@ -64,27 +64,27 @@ shinyServer(function(input, output, session) {
                 values$phoneme)
     }
     
-    showModal(modalDialog(
+    modal = modalDialog(
       title = "Reproducibility in small-N treatment research in aphasia and related disorders: a tutorial",
       includeMarkdown("details.md"),
       easyClose = TRUE,
-      size = "xl", 
+      size = "l", 
       footer = modalButton("Get Started"),
-    ))
+    )
+    
+    showModal(modal)
     
     observeEvent(input$about, {
-      showModal(modalDialog(
-        title = "Reproducibility in small-N treatment research in aphasia and related disorders: a tutorial",
-        includeMarkdown("details.md"),
-        easyClose = TRUE,
-        size = "xl"
-      ))
+      showModal(modal)
     })
     
     observeEvent(input$matrix, {
       showModal(modalDialog(
         title = "Scatterplots and correlations bewteen effect sizes",
-        div(tags$img(src="p3.png", width = "90%"),style="text-align: center;"),
+       # div(tags$img(src="p3.png", width = "90%"),style="text-align: center;"),
+       # div(style="width:100%;text-align:center;height:60vh;",
+       #   plotOutput("scatterplot", height = "100%")
+       #   ),
         easyClose = TRUE,
         size = "l"
       ))
@@ -97,5 +97,115 @@ shinyServer(function(input, output, session) {
       updateRadioButtons(session=session,"condition2", selected = sample(c("blocked", "random"), 1))
     })
     
-
+    
+    output$scatterplot <- renderPlot({
+      
+      if(values$adjust){
+        col_glmm_percent = es_raw$glmm_percent_a
+        col_glmm_logit = es_raw$glmm_logit_a
+      } else {
+        col_glmm_percent = es_raw$glmm_percent
+        col_glmm_logit = es_raw$glmm_logit
+      }
+      
+      # If using all baseline observations
+      if(values$all){
+          # SMD
+          if(values$phoneme){
+            col_smd = es_raw$SMD_phoneme_all
+          } else {
+            col_smd = es_raw$SMD_all
+          }
+        
+          # TAU
+          if(values$tau==0.33){
+            col_tau = es_raw$Tau
+          } else {
+            col_tau = es_raw$Tau_4
+          }
+        
+        col_pmg = es_raw$PMG_all
+        
+        # if not using all baseline observations
+      } else {
+          # SMD
+          if(values$phoneme){
+            col_smd = es_raw$SMD_phoneme
+          } else {
+            col_smd = es_raw$SMD
+          }
+        
+          # TAU
+          if(values$tau==0.33){
+            col_tau = es_raw$Tau_last5
+          } else {
+            col_tau = es_raw$Tau_last5_4
+          }
+        
+        col_pmg = es_raw$PMG
+      }
+      
+      dat = tibble(
+        participant = es_raw$participant,
+        condition = es_raw$condition,
+        itemType = es_raw$itemType,
+        smd = col_smd,
+        pmg = col_pmg,
+        tau = col_tau,
+        glmm_logit = col_glmm_logit,
+        glmm_percent = col_glmm_percent
+      ) %>% mutate(
+        
+      )
+      
+      glimpse(dat)
+      p3 = ggpairs(dat,
+                   columns = 4:8,
+                   mapping = aes(fill = itemType, color = itemType),
+                   columnLabels = c("d[BR]", "PMG", "T~au-U", "GLMM~Logit", "GLMM~Percent"),
+                   labeller = "label_parsed",
+                   diag = list(discrete="barDiag",
+                               continuous = wrap("densityDiag", alpha=0.5, color = "grey50" )),
+                   upper = list(#combo = wrap("box_no_facet", alpha=0.5),
+                     continuous = wrap(ggally_cor, stars = F, digits = 2, size = 5)),
+                   lower = list(continuous = wrap("points", alpha = 0.7, pch=21, color="grey40", size=1.5))) +
+        theme(strip.text = element_text(size = 12))
+      
+      dropLeadingZero <- function(l){
+        lnew <- c()
+        for(i in l){
+          if(i==0){ #zeros stay zero
+            lnew <- c(lnew,"0")
+          } else if (i>1){ #above one stays the same
+            lnew <- c(lnew, as.character(i))
+          } else
+            lnew <- c(lnew, gsub("(?<![0-9])0+", "", i, perl = TRUE))
+        }
+        as.character(lnew)
+      }
+      
+      # fix the x and y axis scales in each scatterplot and density plot
+      p3[2,1] = p3[2,1] + scale_x_continuous(breaks = seq(0, 35, 5))
+      p3[3,1] = p3[3,1] + scale_x_continuous(breaks = seq(0, 35, 5))
+      p3[4,1] = p3[4,1] + scale_x_continuous(breaks = seq(0, 35, 5)) +
+        scale_y_continuous(breaks = seq(0,10,2.5), limits = c(0,10))
+      p3[5,1] = p3[5,1] + scale_x_continuous(breaks = seq(0, 35, 5)) +
+        scale_y_continuous(breaks = seq(0, 1, 0.25), limits = c(0, 1))
+      
+      p3[3,2] = p3[3,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+      p3[4,2] = p3[4,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+      p3[5,2] = p3[5,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+      
+      p3[4,3] = p3[4,3] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+      p3[5,3] = p3[5,3] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))
+      
+      p3[5,4] = p3[5,4] + scale_x_continuous(breaks = seq(0, 10, 2))
+      
+      p3[5,5] = p3[5,5] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25), limits = c(0,1))
+      
+      return(p3)
+    })
+    
+    
+    
 })

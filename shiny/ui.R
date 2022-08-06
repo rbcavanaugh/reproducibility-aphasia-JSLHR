@@ -17,7 +17,7 @@ library(formattable)
 
 
 # Define UI for application that draws a histogra
-shinyUI(page_navbar(title = "Reproducibility in small-N treatment research in aphasia and related disorders: a tutorial",
+shinyUI(page_navbar(title = "Reproducibility in small-N treatment research: a tutorial through the lens of aphasiology",
   theme = bs_theme(version=5, font_scale = 0.8),
   tabPanelBody("Tab1",
   #titlePanel("Comparing effect sizes in small-N research in aphasia & relatd disorders" style = "siz"),
@@ -27,18 +27,20 @@ shinyUI(page_navbar(title = "Reproducibility in small-N treatment research in ap
                     #tau-label{margin-bottom: 0.2rem;}
                     .navbar-brand{color:black!important;}
                     .navbar.navbar-default {background-color:rgba(0,0,0,0.03)!important;}
-                    .navbar {padding-top: 0; padding-bottom: 0;}
+                    .navbar {padding-top: 0; padding-bottom: 0}
+                    .navbar:not(.fixed-bottom):not(.navbar-fixed-bottom):not(.navbar-fixed-bottom) {margin-bottom: 5px;}
                     #condition1 .control-label{float:left;margin-right:10px;}
                     #condition2 .control-label{float:left;margin-right:10px;}
                     #itemType1 .control-label{float:left;margin-right:10px;}
-                    #itemType2 .control-label{float:left;margin-right:10px;}"))
+                    #itemType2 .control-label{float:left;margin-right:10px;}
+                    .tabbable > .nav > li > a {width: 36vw;text-align:center;"))
     ),
     
     useShinyjs(),
     sidebarLayout(
         
         sidebarPanel(width = 3,
-            selectInput("participant1", "Participant", choices = unique(data$participant),
+            selectInput("participant1", "Participant", choices = paste("P", 1:20, sep = ""),
                         selected = paste0("P", sample(seq(1, 20, 1), 1))),
             radioButtons("condition1", "Condition:", choices = c("blocked",  "random"), inline = TRUE,
                          selected = sample(c("blocked", "random"), 1)), div(style="height:2px;"),
@@ -47,7 +49,7 @@ shinyUI(page_navbar(title = "Reproducibility in small-N treatment research in ap
             
             tags$hr(style="border-color: black;"),
           
-            selectInput("participant2", "Participant", choices = unique(data$participant),
+            selectInput("participant2", "Participant", choices = paste("P", 1:20, sep = ""),
                         selected = paste0("P", sample(seq(1, 20, 1), 1))),
             radioButtons("condition2", "Condition:", choices = c("blocked",  "random"), inline = TRUE,
                          selected = sample(c("blocked", "random"), 1)), div(style="height:2px;"),
@@ -76,28 +78,40 @@ shinyUI(page_navbar(title = "Reproducibility in small-N treatment research in ap
             )
         ),
         mainPanel(width = 9,
-          fluidRow(#align = "middle",
-            column(width = 7, plotOutput("plot1", height = "38vh")),
-            column(width = 5, tableOutput("t1"))
+          tabsetPanel(#type = "pills",
+            tabPanel(title = "Participant plots",
+              fluidRow(#align = "middle",
+                column(width = 7, plotOutput("plot1", height = "38vh")),
+                column(width = 5, tableOutput("t1"))
+              ),
+              hr(),
+              fluidRow(#align = "middle",
+                column(width = 7, plotOutput("plot2", height = "38vh")),
+                column(width = 5, tableOutput("t2"))
+              ),
+              hidden(
+                br(),
+                fluidRow(
+                  column(width = 3, offset = 3, checkboxInput("collapse", label = "Collapse phonemes", value = TRUE)),
+                  column(width = 3, offset = 0, checkboxInput("outcome", label = "Count y-axis", value = FALSE))
+                  
+                ))
             ),
-          hr(),
-          fluidRow(#align = "middle",
-            column(width = 7, plotOutput("plot2", height = "38vh")),
-            column(width = 5, tableOutput("t2"))
-          ),
-          hidden(
-            br(),
-          fluidRow(
-            column(width = 3, offset = 3, checkboxInput("collapse", label = "Collapse phonemes", value = TRUE)),
-            column(width = 3, offset = 0, checkboxInput("outcome", label = "Count y-axis", value = FALSE))
-            
-          )))
+            tabPanel(title = "Correlation Matrix",
+              div(align="center",
+                  style="height:75vh;padding-left:7.5%;padding-right:7.5%;padding-top:2.5%;",
+                  plotOutput("scatterplot", height = "100%")
+              ),
+              div(align = "right",style="padding-left:5%;padding-right:5%;padding-top:2.5%;",
+                  tags$em("Relationships between individual effect size measures typically used in aphasia small-N studies."))
+            )
+          )
+          
+          )
         )
       ),
       !!!list(bslib::nav_spacer(),
-                bslib::nav_item(
-                  actionButton("matrix", "View Scatterplots", style = "margin-right:10px; border-color:transparent; background-color:transparent;")
-                  ),
+             
               bslib::nav_item(
                 actionButton("about", "App Details", style = "margin-right:10px; border-color:transparent; background-color:transparent;"),
               ),

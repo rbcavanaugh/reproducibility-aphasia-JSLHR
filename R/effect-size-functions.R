@@ -2,8 +2,10 @@
 # Load relevant package -----------------------------------
 ###########################################################
 
-#library(tidyverse)
-#library(SingleCaseES)
+# Uncomment if running this script standalone
+
+# library(tidyverse)
+# library(SingleCaseES)
 
 ###########################################################
 # Standardized Mean Difference {SingleCaseES} -------------
