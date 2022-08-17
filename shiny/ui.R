@@ -13,63 +13,98 @@ library(bslib)
 library(knitr)
 library(kableExtra)
 library(formattable)
+library(shinyWidgets)
+
+
 
 
 
 # Define UI for application that draws a histogra
 shinyUI(page_navbar(title = "Reproducibility in small-N treatment research: a tutorial through the lens of aphasiology",
-  theme = bs_theme(version=5, font_scale = 0.8),
+  theme = bs_theme(version=4, font_scale = 0.85),
   tabPanelBody("Tab1",
   #titlePanel("Comparing effect sizes in small-N research in aphasia & relatd disorders" style = "siz"),
-  tags$head(
-    tags$style(HTML(".form-group {margin-bottom: .5rem;}
-                    .control-label{font-weight: bold;}
-                    #tau-label{margin-bottom: 0.2rem;}
-                    .navbar-brand{color:black!important;}
-                    .navbar.navbar-default {background-color:rgba(0,0,0,0.03)!important;}
-                    .navbar {padding-top: 0; padding-bottom: 0}
-                    .navbar:not(.fixed-bottom):not(.navbar-fixed-bottom):not(.navbar-fixed-bottom) {margin-bottom: 5px;}
-                    #condition1 .control-label{float:left;margin-right:10px;}
-                    #condition2 .control-label{float:left;margin-right:10px;}
-                    #itemType1 .control-label{float:left;margin-right:10px;}
-                    #itemType2 .control-label{float:left;margin-right:10px;}
-                    .tabbable > .nav > li > a {width: 36vw;text-align:center;"))
-    ),
-    
+  # tags$head(
+  #   tags$style(HTML(""))
+  #   ),
+  #shiny::includeCSS(here("shiny", "www", "style.css")),
+  shiny::includeCSS(here("www", "style.css")),
+  
     useShinyjs(),
     sidebarLayout(
         
         sidebarPanel(width = 3,
-            selectInput("participant1", "Participant", choices = paste("P", 1:20, sep = ""),
-                        selected = paste0("P", sample(seq(1, 20, 1), 1))),
-            radioButtons("condition1", "Condition:", choices = c("blocked",  "random"), inline = TRUE,
-                         selected = sample(c("blocked", "random"), 1)), div(style="height:2px;"),
+                     tags$h5("Participant 1", style="font-style:italic;"),
+            pickerInput("participant1",
+                        options = list(style = "btn-default", size = 10),
+                        label = NULL, #"Participant",
+                        choices = paste("P", 1:20, sep = ""), #vals, #paste("P", 1:20, sep = ""),
+                        selected = sample(vals, 1)), #paste0("P", sample(seq(1, 20, 1), 1))),
+            radioGroupButtons("condition1", label = NULL,
+                              #"Condition:",
+                              justified = TRUE,
+                              choices = list("Blocked" = "blocked",  "Random" = "random"),
+                              size = "sm",
+                              #inline = TRUE,
+                         selected = sample(c("blocked", "random"), 1)), #div(style="height:2px;"),
 
-            radioButtons("itemType1", "Item Type:", choices = c("tx",  "gx"), inline = TRUE),
+            radioGroupButtons("itemType1", label = NULL,
+                             # "Item Type:",
+                              choices = list("Treated" = "tx", "Generalization"= "gx"),
+                              size = "sm",
+                              justified = TRUE,
+                              #inline = TRUE
+                              ),
             
             tags$hr(style="border-color: black;"),
-          
-            selectInput("participant2", "Participant", choices = paste("P", 1:20, sep = ""),
-                        selected = paste0("P", sample(seq(1, 20, 1), 1))),
-            radioButtons("condition2", "Condition:", choices = c("blocked",  "random"), inline = TRUE,
-                         selected = sample(c("blocked", "random"), 1)), div(style="height:2px;"),
-            radioButtons("itemType2", "Item Type:", choices = c("tx",  "gx"), inline = TRUE),
+            tags$h5("Participant 2", style="font-style:italic;"),
+            pickerInput("participant2",
+                        options = list(style = "btn-default", size = 10),
+                        label = NULL, #"Participant",
+                        choices = paste("P", 1:20, sep = ""), #vals, #paste("P", 1:20, sep = ""),
+                        selected = sample(vals, 1)), #paste0("P", sample(seq(1, 20, 1), 1))),
+            radioGroupButtons("condition2",  label = NULL,
+                              #"Condition:",
+                              choices = list("Blocked" = "blocked",  "Random" = "random"),
+                              size = "sm",
+                              justified = TRUE,
+                              #inline = TRUE,
+                         selected = sample(c("blocked", "random"), 1)), #div(style="height:2px;"),
+            radioGroupButtons("itemType2", label = NULL,
+                             # "Item Type:",
+                              list("Treated" = "tx", "Generalization"= "gx"),
+                              size = "sm",
+                              #inline = TRUE
+                              justified = TRUE
+                              ),
             
             tags$hr(style="border-color: black;"),
         
-            tags$h5("Researcher degrees of freedom"),
-            radioButtons("all",
+            tags$h5("Researcher degrees of freedom", style="font-style:italic;"),
+            radioGroupButtons("all",
                          label = tags$span(HTML("<em>d</em><sub>BR</sub>")," & PMG", "baseline data"), 
-                         inline = TRUE,
-                         choices = c("All observations" = "t", "Last 5 observations" = "f")),
-            radioButtons("phoneme",
+                         #inline = TRUE,
+                         size = "sm",justified = TRUE,
+                         choices = c("All obs" = "t", "Last 5 obs" = "f")),
+            radioGroupButtons("phoneme",
                          label = tags$span(HTML("<em>d</em><sub>BR</sub>"), "calculation"), 
-                         inline = TRUE,
+                         #inline = TRUE,
+                         size = "sm",
+                         justified = TRUE,
                          choices = c("Across phonemes" = "across", "Within phonemes" = "within")),
-            radioButtons("tau", label = "Tau-U trend cutoff", choices = c(0.33, 0.4), inline = TRUE),
-            radioButtons("adjust",
-                         label = "GLMM trend adjustment", inline = TRUE,
-                         choices = c("Extrapolate trend" = "t", "Don't extrapolate" = "f")),
+            radioGroupButtons("tau", label = "Tau-U trend cutoff",
+                             # inline = TRUE,
+                             size = "sm",
+                             justified = TRUE,
+                              choices = c(0.33, 0.4)
+                              
+                              ),
+            radioGroupButtons("adjust",
+                         label = "GLMM trend adjustment",
+                         #inline = TRUE,
+                         justified = TRUE,
+                         size = "sm",
+                         choices = c("Extend trend" = "t", "Don't extend" = "f")),
             
             tags$hr(style="border-color: black;"),
 
@@ -80,6 +115,7 @@ shinyUI(page_navbar(title = "Reproducibility in small-N treatment research: a tu
         mainPanel(width = 9,
           tabsetPanel(#type = "pills",
             tabPanel(title = "Participant plots",
+             div(style="margin-top:10px;",
               fluidRow(#align = "middle",
                 column(width = 7, plotOutput("plot1", height = "38vh")),
                 column(width = 5, tableOutput("t1"))
@@ -96,10 +132,10 @@ shinyUI(page_navbar(title = "Reproducibility in small-N treatment research: a tu
                   column(width = 3, offset = 0, checkboxInput("outcome", label = "Count y-axis", value = FALSE))
                   
                 ))
-            ),
+            )),
             tabPanel(title = "Correlation Matrix",
               div(align="center",
-                  style="height:75vh;padding-left:7.5%;padding-right:7.5%;padding-top:2.5%;",
+                  style="height:75vh;padding-left:7.5%;padding-right:7.5%;padding-top:2.5%;margin-top:10px;",
                   plotOutput("scatterplot", height = "100%")
               ),
               div(align = "right",style="padding-left:5%;padding-right:5%;padding-top:2.5%;",

@@ -1,0 +1,983 @@
+---
+title: "S1. Supplemental Materials Part 1"
+subtitle: "Reproducibility in small-N treatment research: a tutorial through the lens of aphasiology"
+output: pdf_document
+header-includes:
+    - \usepackage{setspace}
+    - \doublespacing
+    - \usepackage{float}
+---
+
+```{r setup, include = FALSE}
+library(kableExtra)
+hook_chunk = knitr::knit_hooks$get('chunk')
+
+knitr::knit_hooks$set(chunk = function(x, options) {
+  regular_output = hook_chunk(x, options)
+  # add latex commands if chunk option singlespacing is TRUE
+  if (isTRUE(options$singlespacing)) 
+    sprintf("\\singlespacing\n %s \n\\doublespacing", regular_output)
+  else
+    regular_output
+})
+
+knitr::opts_chunk$set(echo = TRUE, singlespacing = TRUE, 
+                      fig.height = 4, fig.width = 6, fig.align = "center")
+```
+
+# Introduction
+
+This document details the code needed to reproduce the analysis in section 1 of the manuscript. For batch calculations of effect sizes across participants see part 2.
+
+# Setup 
+
+## Load packages and functions
+
+```{r, warning = FALSE, message = FALSE}
+# Uncomment and run this line to install packages if needed
+# Some packages are not used to generate the .pdf, but are used for table generation
+# install.packages(c("here", "SingleCaseES", "lme4",
+# "emmeans", "brms", "tidybayes", "ggdist", "tidyverse", "flextable", "officer"))
+
+# Instructions for installing RStan are here: 
+# https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started
+
+library(here)           # for locating files
+library(SingleCaseES)   # calculating SMD, Tau-U
+library(lme4)           # frequentist mixed-effects models
+library(emmeans)        # estimating effect sizes from lme4
+library(brms)           # bayesian mixed-effects models
+library(tidybayes)      # estimating effect sizes from brms
+library(ggdist)         # Visualizing posterior distributions
+library(tidyverse)      # data wrangling and plotting
+library(flextable)      # creating tables
+library(officer)        # saving to word
+
+
+# set a seed for reproducibility
+set.seed(42)
+```
+
+## Read in data
+
+Note that the current setup uses RStudio R projects (https://support.rstudio.com/hc/en-us/articles/200526207-Using-RStudio-Projects). One of the features of R projects is that the working directory is automatically set to the project root (the folder with the .Rproj). A discussion of R projects can be found at https://www.tidyverse.org/blog/2017/12/workflow-vs-script/. In this case `here("study-data")` refers to the /study-data folder inside the project. 
+
+
+```{r}
+# create a list of files
+files <- list.files(
+                 here("data"), # look in the study-data folder
+                 full.names = TRUE,  # use the full paths of the files
+                 pattern = ".csv",   # only read in .csv files
+                 recursive = TRUE)   # include files within subfolders
+
+# read in the files and combine them together
+# map_df takes a function, in this case read_csv().
+# show_col_types suppresses output since we're reading in many files
+df <- files %>%
+  map_dfr(read_csv, show_col_types = FALSE)
+
+```
+
+## Preview the data
+
+```{r}
+head(df)
+```
+
+```{r, include = FALSE, eval = FALSE}
+# table 2
+t2 <- flextable(head(df, 5), cwidth = 0.9)
+doc <- read_docx(here("tables-figures", "template_lnd.docx"))
+doc <- body_add_flextable(doc, value = t2)
+fileout <- "table2.docx" # uncomment to write in your working directory
+print(doc, target = fileout)
+```
+
+```{r, echo = FALSE}
+cols = tibble(
+  Variable = colnames(df),
+  Description = c(
+    "de-identified participant ID",
+    "probe schedule (blocked or random)",
+    "target_phoneme",
+    "item condition (treatment or generalization)",
+    "treatment phase",
+    "session number from Wambaugh 2017",
+    "item identifier",
+    "number of items in the list (per phoneme)",
+    "phase used to calcualte effect sizes in Wambaugh et al., 2017",
+    "accuracy of participant response",
+    "Number of baseline sessions"
+  )
+) 
+cols %>%
+  kable(format = "latex", caption = "Data variables and their description", booktabs = TRUE) %>%
+  kable_styling(position = "center", latex_options = "HOLD_position")
+```
+
+```{r, include = FALSE, eval = FALSE}
+#table 1
+t1 <- flextable(cols, cwidth = c(2,3))
+doc <- read_docx("template.docx")
+doc <- body_add_flextable(doc, value = t1)
+fileout <- "table1.docx" # uncomment to write in your working directory
+print(doc, target = fileout)
+```
+
+# Case example: Participant 10
+
+## Filter data for Participant 10
+
+Starting from the entire dataset, filter for participant 10, treated items, and
+the blocked condition. Then to calculate session-level data (the number of correct responses per session), group by session, and use the summarize function to calculate the number of correct responses per session. The `group_by` function also includes phase and spt2017 because we want to keep
+these variables in the summary data frame, but their addition doesn't affect grouping.
+The .groups argument removes the grouping after summarize.
+
+
+```{r}
+P10 <- df %>%
+  # filter for participant 10, treated condition, blocked condition
+  filter(participant == "P10",
+         itemType == "tx",
+         condition == "blocked") %>%
+  # calculate the sum for each level of session, phase and spt2017
+  group_by(session, phase, spt2017) %>%
+  summarize(sum_correct = sum(response), .groups = "drop")
+```
+
+## Plot performance over time
+
+Plotting data from participant 10. First, we select only
+the baseline and treatment phases (ignoring the washout and maintenance phases
+for the purpose of this paper). The we create a dummy variable reflecting whether
+or not the session was included in the SMD/PMG calculations. Finally, we use the {ggplot2}
+package to plot the data. A recent primer on {ggplot2} for researchers unfamiliar with R can be found
+here: https://doi.org/10.1177/25152459221074654
+
+
+```{r, fig.width = 5, fig.height = 3, warning = FALSE}
+
+p1 = P10 %>%
+  # filter for baseline and treatment phases
+  filter(phase == "baseline" | phase == "treatment") %>%
+  # create a new variable called Measure that has a value of
+  # include if spt2017 is not an NA value and exclude if it is. 
+  # the levels argument indicates that exclude should be
+  # the first level of the factor.
+  mutate(Measure = factor(
+    ifelse(!is.na(spt2017), "include", "exclude"),
+           levels = c("exclude", "include"))) %>%
+  # create a plot with session on the x axis, percent 
+  # correct on the y axis, and group by phase
+  ggplot(aes(x = session, y = sum_correct/20, group = phase)) +
+  # add points to the graph
+  geom_point(aes(alpha = Measure), size = 3) + 
+  # add a line to the graph
+  geom_line(alpha = 0.5) +
+  # add a vertical line where x = 7
+  geom_vline(aes(xintercept = 7), linetype = "dashed") +
+  scale_x_continuous(breaks = seq(0,30,5)) +
+  ylim(0, 1) +
+  scale_alpha_discrete(range = c(0.35, 0.9)) +
+  labs(title = "Participant 10, treated words, blocked condition",
+       caption = "Dark circles represent data points used to calculate
+       the within-case standardized mean difference in Wambaugh et al.,
+       (2017)",
+       y="Percent Correct") +
+  guides(alpha = "none")
+
+p1
+```
+
+## Within-case standardized mean difference
+
+There are any number of ways to calculate the within case standardized
+mean difference using R code. In this example, we have used the `SMD()` function
+from the established package {SingleCaseES} by James Pustejovsky because it
+includes additional functions that may be of interest to researchers in aphasiology.
+
+Additionally, we do not show all information returned by the function, which
+also includes a 95% confidence interval, as it is not clear that this 
+confidence interval applies to the the *d*~BR~ modification of the original 
+within-case standardized mean difference. 
+
+
+$$d_{BR} = \frac{x_B- x_A}{S_A}$$
+
+
+```{r}
+A = P10 %>% filter(spt2017 == "pre") %>% pull(sum_correct)
+B = P10 %>% filter(spt2017 == "post") %>% pull(sum_correct)
+
+SMD(A_data = A, B_data = B)
+```
+
+## Proportion of potential maximal gain
+
+
+There is no R package that includes a function to calculate PMG to our knowledge. However, creating such a function is relatively straightforward. A function that calculates PMG similar to the SMD() function from the {SingleCaseES} package might take the following form, with an additional argument for the number of items treated (nitems). The function calculates the mean of the A phase and B phase, and then calculates and returns the PMG value from the same data as *d*~BR~ above.
+
+
+$$PMG = \frac{x_B- x_A}{n_{items} - x_A}$$
+
+
+
+```{r}
+# the function is named PMG and takes 3 arguments:
+# vectors of the a_data and b_data, and 
+# a single number indicating how many items were treated
+PMG <- function(a_data, b_data, nitems){
+  mean_a <- mean(a_data) # calculate mean of a_data
+  mean_b <- mean(b_data) # calculate mean of b_data
+  pmg <- (mean_b-mean_a)/(nitems-mean_a) # calculate PMG
+  return(pmg) # return the PMG value. 
+}
+
+PMG(a_data = A, b_data = B, nitems = 20)
+
+```
+
+
+
+## Tau-U
+
+The Tau-U family of effect sizes (and several other non-overlap measures) can
+be calculated using the {SingleCaseES} package. In this case, we use all data 
+summarized in the P10 data frame (and not just the data used to calculate *d*~BR~).
+
+First, we estimate the trend line during the baseline phase, which can be generated
+by creating a simple linear model using the `lm()` function. The model includes
+the number of correct responses as the dependent variable and the session number
+as the independent variable. The session coefficient reflects the slope during 
+the baseline phase. The `coef()` function simple extracts the model coefficients.
+
+
+```{r}
+P10 %>% 
+    filter(phase == "baseline") %>%
+    lm(data = ., sum_correct~session) %>%
+    coef()
+```
+
+
+The `Tau()` and `Tau_U()` functions take the same data structure as the `SMD()`
+and `PMG()` functions above.
+
+Using the conservative benchmark of 0.33 recommended by Lee and Cherney (2018),
+we would calculate $Tau_{A vs. B}$ as the slope of the baseline phase
+is only 0.2 (from the result above). To calculate $Tau_{A vs. B}$, we can use the `Tau()` function.
+
+
+```{r}
+A = P10 %>% filter(phase == "baseline") %>% pull(sum_correct)
+B = P10 %>% filter(phase == "treatment") %>% pull(sum_correct)
+
+Tau(A_data = A, B_data = B)
+```
+
+
+However, if we had elected to correct for baseline trends and use $Tau_{A vs. B - trendA}$, we can use the similar `Tau_U()` function. 
+
+
+```{r}
+Tau_U(A_data = A, B_data = B)
+```
+
+
+## Mixed-effects model-based effect sizes
+
+The mixed-effects model example for participant 10 uses item-level data, 
+so we need to create a new dataframe for this model. As discussed in the manuscript, the model formula is based on a structure from Huitema & McKean (2000). 
+
+
+$$Y_{t} = \beta_{0} + \beta_{1}T_{t} + \beta_{2}D_{t} + \beta_{3}[T_{t}-(n_{1}+1)]D_{t} + \epsilon _{t}$$
+
+
+The DV is predicted by the model intercept, baseline slope, level change, and slope change parameters.
+
+After selecting data from participant 10, the coefficients are
+created by:
+
+- setting `baseline_slope` equal to the session variable
+- `level_change` is a dummy variable, 0 during baseline and 1 during treatment
+- `slope_change` is created by subtracting the number of baselines plus 2 from
+the baseline slope value, and then multiplying the result with the `level_change`
+variable. Typically, if probing every session, the formula calls for subtracting
+the number of baselines plus 1. However, because Wambaugh et al., (2017) used
+intermittent probing schedules, and probed every other treatment session starting
+at the second, we need to add 2 to the number of baselines to ensure that
+the slope change variable starts at 0 on the first recorded treatment probe. 
+
+
+```{r}
+P10 <- df %>%
+  filter(participant == "P10",
+         condition == "blocked",
+         itemType == "tx",
+         phase == "baseline" | phase == "treatment") %>%
+  mutate(baseline_slope = session,
+         level_change = ifelse(phase == "baseline", 0, 1),
+         slope_change = (baseline_slope - (6+2))*level_change,
+         level_change = as.factor(level_change))
+```
+
+
+The resulting matrix looks as follows:
+
+
+```{r, echo = FALSE}
+P10 %>%
+  select(phase, baseline_slope, level_change, slope_change) %>%
+  distinct() %>%
+  arrange(baseline_slope) %>%
+  kable(format = "latex", booktabs = TRUE) %>%
+  kable_styling(position = "center", latex_options = "HOLD_position")
+```
+
+
+Manuscript Figure 2. visualizes each parameter in this model structure. The code
+can be found in the .Rmd file, and is omitted from the pdf due to its length. 
+
+
+```{r, echo = FALSE, fig.width = 5, fig.height = 3}
+
+P10_itts = df %>%
+  filter(participant == "P10",
+         itemType == "tx",
+         condition == "blocked") %>%
+  group_by(session, phase, spt2017) %>%
+  summarize(sum_correct = sum(response), .groups = "drop")
+
+pred_dat = P10_itts %>% filter(phase == "baseline" | phase == "treatment") %>%
+  mutate(phase = ifelse(phase == "baseline", 0, 1),
+         slope_change = (session-8)*phase)
+
+# regular old glm model aggregated binomial
+mod = glm(cbind(sum_correct, 20-sum_correct) ~ session + phase + slope_change, 
+          family = binomial,
+          data = pred_dat
+)
+
+# the fitted line from the model on the response scale (percept)
+pred_dat$preds = predict(mod, type = "response")
+
+# make another dataframe, this time with no slope change to show
+# a dashed line that has the baseline slope and level change
+# incorporated but no slope change
+new_dat = pred_dat %>%
+  mutate(slope_change = 0)
+
+new_dat$preds = predict(mod, newdata = new_dat, type = "response")
+
+# make another dataframe, this time with no slope change or level change
+# to show the continuing baseline slope to the point of level change
+new_dat2 = pred_dat %>%
+  mutate(phase = 0, slope_change =0)
+
+new_dat2$preds = predict(mod, newdata = new_dat2, type = "response")
+
+# only show it for sessions before 9
+new_dat2 = new_dat2 %>%
+  filter(session<9)
+
+# here's the plot
+# I commented out the "ggbrace" line that creates the level change
+# brace and label so you don't
+# have to install that additional package. If you want to add those, 
+# see here: https://github.com/NicolasH2/ggbrace and then 
+# uncomment the line starting with ggbrace::
+p2 = pred_dat %>%
+  ggplot(aes(x = session, y = sum_correct/20, group = phase)) +
+  geom_point(size = 4) + 
+  geom_line(alpha = 0.25) +
+  geom_vline(aes(xintercept = 7), linetype = "dashed") +
+  scale_x_continuous(breaks = seq(0,30,5)) +
+  labs(title = "Participant 10, treated words, blocked condition",
+       y="Percent Correct") +
+  guides(alpha = "none") +
+  # fitted line
+  geom_line(inherit.aes = FALSE, data = pred_dat,
+            aes(x=session, y = preds, group = phase), color = "darkred") + 
+  # baseline slope plus level change line
+  geom_line(inherit.aes = FALSE, data = new_dat,
+            aes(x=session, y = preds, group = phase), color = "darkred", alpha = 0.3, linetype = "dashed")+
+  # extended baseline slope dashed line
+  geom_line(inherit.aes = FALSE, data = new_dat2,
+            aes(x=session, y = preds, group = phase), color = "darkred", alpha = 0.3, linetype = "dashed")+
+  ggbrace::geom_brace(aes(c(8,9), c(0.19, 0.5),
+   label = "level change"), inherit.data=F, rotate = 90, labelsize = 4, color = "darkred") +
+  annotate(color = "darkred",
+           geom = "curve", x = 4, y = .35, xend = 2, yend = .15, 
+           curvature = .3, arrow = arrow(length = unit(2, "mm"))
+  ) +
+  annotate(geom = "text", x = 1, y = .375, label = "baseline slope",
+           hjust = "left", color = "darkred") +
+  annotate(color = "darkred",
+           geom = "curve", x = 4, y = .35, xend = 2, yend = .15, 
+           curvature = .3, arrow = arrow(length = unit(2, "mm"))
+  ) +
+  annotate(geom = "text", x = 1, y = .375, label = "baseline slope",
+           hjust = "left", color = "darkred") +
+  annotate(color = "darkred",
+           geom = "curve", x = 15, y = .65, xend = 15, yend = .76, 
+           curvature = .3, arrow = arrow(length = unit(2, "mm"), ends = "both")
+  ) +
+  annotate(color = "darkred",
+           geom = "text", x = 15.75, y = .77, hjust = "left",
+           label = "slope change"
+  ) 
+
+
+
+p2
+```
+
+
+The model formula can be expressed as follows: 
+
+
+$$
+\begin{aligned}
+  \operatorname{response}_{i}  &\sim \operatorname{Binomial}(n = 1, \operatorname{prob}_{\operatorname{response} = 1} = \widehat{P}) \\
+    \log\left[\frac{\hat{P}}{1 - \hat{P}} \right] &=\alpha_{j[i]} + \beta_{1j[i]}T_t + \beta_{2j[i]}D_t + \beta_{3j[i]}[T_{t}-(n_{1}+1)]D_{t} \\    
+\left(
+  \begin{array}{c} 
+    \begin{aligned}
+      &\alpha_{j} \\
+      &\beta_{1j} \\
+      &\beta_{2j} \\
+      &\beta_{3j}
+    \end{aligned}
+  \end{array}
+\right)
+  &\sim N \left(
+\left(
+  \begin{array}{c} 
+    \begin{aligned}
+      &\mu_{\alpha_{j}} \\
+      &\mu_{\beta_{1j}} \\
+      &\mu_{\beta_{2j}} \\
+      &\mu_{\beta_{3j}}
+    \end{aligned}
+  \end{array}
+\right)
+, 
+\left(
+  \begin{array}{cccc}
+     \sigma^2_{\alpha_{j}} & \rho_{\alpha_{j}\beta_{1j}} & \rho_{\alpha_{j}\beta_{2j}} & \rho_{\alpha_{j}\beta_{3j}} \\ 
+     \rho_{\beta_{1j}\alpha_{j}} & \sigma^2_{\beta_{1j}} & \rho_{\beta_{1j}\beta_{2j}} & \rho_{\beta_{1j}\beta_{3j}} \\ 
+     \rho_{\beta_{2j}\alpha_{j}} & \rho_{\beta_{2j}\beta_{1j}} & \sigma^2_{\beta_{2j}} & \rho_{\beta_{2j}\beta_{3j}} \\ 
+     \rho_{\beta_{3j}\alpha_{j}} & \rho_{\beta_{3j}\beta_{1j}} & \rho_{\beta_{3j}\beta_{2j}} & \sigma^2_{\beta_{3j}}
+  \end{array}
+\right)
+ \right)
+    \text{, for item j = 1,} \dots \text{,J}
+\end{aligned}
+$$
+
+
+The first line of the equation indicates that the dependent variable takes a binomial distribution. The second line represents the extension of the Huitema & McKean (2000) model to the hierarchical case, where each fixed effect is estimated for each item, j[i]. The third line of the equation represents the random effect structure, indicating that the effect of each fixed effect (baseline slope, level change, and slope change) are allowed to vary for each item.
+
+The following shows how we arrived at the final model for P10
+
+
+1. First, we fit the maximal random effects structure. However, the model did not converge. 
+
+```{r}
+mod1 <- 
+    glmer(
+      # fixed effects
+      response ~ baseline_slope + level_change + slope_change +
+      # random effects
+       (1 + baseline_slope + level_change + slope_change | item),
+          data = P10,
+          family = binomial)
+```
+
+
+2. Second, we tried specifying a different optimizer, following recommendations that
+can be found at https://bbolker.github.io/mixedmodels-misc/glmmFAQ.html#convergence-warnings.
+
+
+```{r}
+mod1 <- 
+    glmer(response ~ baseline_slope + level_change + slope_change + 
+            (1 + baseline_slope + level_change + slope_change | item),
+          data = P10,
+          family = binomial,
+          # for model convergence
+          control = glmerControl(optimizer="bobyqa"))
+```
+
+
+We can now examine the model summary:
+
+
+```{r}
+summary(mod1)
+```
+
+
+We note that in this case, further reducing the random effects structure often
+returns a significant result for the level_change parameter, demonstrating how our
+choice of random effect structure can influence the statistical significance
+of model parameters. For this reason, we stress that researchers are forthcoming of the model modifications made from the initial maximal random effect structure and also report what modifications result in parameters changing in significance. 
+
+Calculating an overall effect size for this participant requires contrasting
+performance either at the end of treatment with and without the level change and slope
+change parameters, or contrasting performance at the end of treatment with performance
+at the end of baseline. The former option assumes that any baseline trend would have continued
+throughout the treatment phase in the absence of treatment, is typically more conservative. 
+
+While there is a small, empirical baseline slope in this data, it may be reasonable to
+consider that this slope is largely driven by lower performance on the second probe session, and
+that performance in baseline sessions 3-6 are stable, and therefore estimate the 
+difference in performance from the end of baseline to the end of treatment.
+Criteria for such decisions should ideally be made a-priori if possible, and reported in publications regardless.
+
+
+1. First, we generate the marginal means for each combination of baseline slope,
+level change, and slope change. 
+
+```{r}
+# setup marginal means
+# 
+marginal_means = emmeans(
+                        # object refers to the glmer model object
+                       object = mod1,
+                       # spects refers to the model coefficients we're interested in
+                       specs = c("baseline_slope", "level_change", "slope_change"),
+                       # at indicates the values of the coefficients we're interested in
+                       at = list(
+                         baseline_slope = c(7, 26),
+                         level_change = c("0", "1"),
+                         slope_change = c(0, 19)
+                       )
+                     ) 
+
+marginal_means
+```
+
+
+2. This returns a table of all possible comparisons, and we are only interested in
+contrasting the first row (beginning of treatment) with the last row (end of treatment). 
+After selecting these two rows, we can then contrast their estimates. 
+
+
+```{r}
+# code to select first and last rows
+# The 1 indicates that the row should be selected
+# There are 8 numbers corresponding to the 8 possible comparisons above
+A = c(1, 0, 0, 0, 0, 0, 0, 0)
+B = c(0, 0, 0, 0, 0, 0, 0, 1)
+
+# contrast the marginal means
+# infer argument returns a confidence interval and p value if
+# both are set to TRUE.
+contrast(marginal_means, 
+     method = list("Unadjusted effect size" = B-A),
+     infer = c(TRUE, TRUE))
+```
+
+
+We could also make the more conservative assumption that any baseline trend
+continues by choosing the second row where baseline slope is set to the last 
+treatment session.
+
+
+```{r}
+# code to select first and last rows
+# The 1 indicates that the row should be selected
+A = c(0, 1, 0, 0, 0, 0, 0, 0)
+B = c(0, 0, 0, 0, 0, 0, 0, 1)
+
+# contrast the marginal means
+# infer argument returns a confidence interval and p value if
+# both are set to TRUE.
+contrast(marginal_means, 
+     method = list("Unadjusted effect size" = B-A),
+     infer = c(TRUE, TRUE))
+```
+
+
+Notice that there is much greater uncertainty in this contrast, evident by the increase in standard error, and as a result the p-value is no longer significant. 
+
+
+### Group-level model
+
+
+We can extend this individual model to all participants, still
+focusing on treated items in the blocked condition. First, we create a new data frame
+that includes all participants.
+
+
+```{r}
+df_glmm <- df %>%
+  # select the correct phase, condition, and itemType
+  filter(phase == "baseline" | phase == "treatment",
+         condition == "blocked",
+         itemType == "tx") %>%
+  # create the Huitema model parameters
+  mutate(baseline_slope = session,
+         level_change = ifelse(phase == "baseline", 0, 1),
+         slope_change = (baseline_slope - (n_baselines+2))*level_change,
+         level_change = as.factor(level_change))
+```
+
+
+Then we can start again with a relatively maximal random effect structures,
+noting that we could also include random slopes for items. However, it is unlikely 
+that such a model structure could be supported by the data. In this case we have
+chosen to include the most theoretically important random effects (Matsucheck, 2018)
+that we expect to be supported by the data. A formula for the model is: 
+
+
+$$
+\begin{aligned}
+  \operatorname{response}_{i}  &\sim \operatorname{Binomial}(n = 1, \operatorname{prob}_{\operatorname{response} = 1} = \widehat{P}) \\
+    \log\left[\frac{\hat{P}}{1 - \hat{P}} \right] &=\alpha_{j[i],k[i]} + \beta_{1k[i]}(\operatorname{baseline\_slope}) + \beta_{2k[i]}(\operatorname{level\_change}_{\operatorname{1}}) + \beta_{3k[i]}(\operatorname{slope\_change}) \\    \alpha_{j}  &\sim N \left(\mu_{\alpha_{j}}, \sigma^2_{\alpha_{j}} \right)
+    \text{, for item j = 1,} \dots \text{,J} \\    
+\left(
+  \begin{array}{c} 
+    \begin{aligned}
+      &\alpha_{k} \\
+      &\beta_{1k} \\
+      &\beta_{2k} \\
+      &\beta_{3k}
+    \end{aligned}
+  \end{array}
+\right)
+  &\sim N \left(
+\left(
+  \begin{array}{c} 
+    \begin{aligned}
+      &\mu_{\alpha_{k}} \\
+      &\mu_{\beta_{1k}} \\
+      &\mu_{\beta_{2k}} \\
+      &\mu_{\beta_{3k}}
+    \end{aligned}
+  \end{array}
+\right)
+, 
+\left(
+  \begin{array}{cccc}
+     \sigma^2_{\alpha_{k}} & \rho_{\alpha_{k}\beta_{1k}} & \rho_{\alpha_{k}\beta_{2k}} & \rho_{\alpha_{k}\beta_{3k}} \\ 
+     \rho_{\beta_{1k}\alpha_{k}} & \sigma^2_{\beta_{1k}} & \rho_{\beta_{1k}\beta_{2k}} & \rho_{\beta_{1k}\beta_{3k}} \\ 
+     \rho_{\beta_{2k}\alpha_{k}} & \rho_{\beta_{2k}\beta_{1k}} & \sigma^2_{\beta_{2k}} & \rho_{\beta_{2k}\beta_{3k}} \\ 
+     \rho_{\beta_{3k}\alpha_{k}} & \rho_{\beta_{3k}\beta_{1k}} & \rho_{\beta_{3k}\beta_{2k}} & \sigma^2_{\beta_{3k}}
+  \end{array}
+\right)
+ \right)
+    \text{, for participant k = 1,} \dots \text{,K}
+\end{aligned}
+$$
+
+
+The model takes a little longer to run, and returns a convergence warning
+
+
+```{r}
+mod2 <-
+ glmer(response ~ baseline_slope + level_change + slope_change + 
+       (1 + baseline_slope + level_change + slope_change | participant) +
+       (1|item),
+           data = df_glmm,
+           family = binomial)
+```
+
+
+Again, we change the optimizer. 
+
+
+```{r}
+mod2 <-
+ glmer(response ~ baseline_slope + level_change + slope_change + 
+       (1 + baseline_slope + level_change + slope_change | participant) +
+       (1|item),
+           data = df_glmm,
+           family = binomial,
+       control = glmerControl(optimizer = "bobyqa"))
+```
+
+
+Since the model appears to have converged, we can examine the model results
+
+
+```{r}
+summary(mod2)
+```
+
+
+The summary table shows us there there are statistically significant effects
+for all three parameters: a small but significant trend at baseline, a fairly substantial
+level change on average, and an increase in slope from baseline that is slightly more
+than double the initial average trend. We also note that there there is much more 
+variation in the level change parameter between participants relative to the
+baseline slope and slope change parameters. Finally, the correlation of fixed effects
+shows a positive association between individuals baseline trend and their level change,
+but a negative association between individuals baseline trend and slope change and level change. 
+
+We can calculate an overall effect size using the same approach as the individual
+model. In this case, we assume the median number of baseline sessions (11) and treatment 
+sessions (20)
+
+
+```{r}
+# setup marginal means
+# 
+marginal_means = emmeans(
+                       object = mod2,
+                       specs = c("baseline_slope", "level_change", "slope_change"),
+                       at = list(
+                         baseline_slope = c(11, 31),
+                         level_change = c("0", "1"),
+                         slope_change = c(0, 20)
+                       )
+                     ) 
+
+marginal_means
+```
+
+
+Because the baseline trend, on average, was statistically reliable, 
+we calculated an overall effect size assuming that it would have continued in
+the absence of treatment. 
+
+
+```{r}
+# code to select first and last rows
+# The 1 indicates that the row should be selected
+A = c(0, 1, 0, 0, 0, 0, 0, 0)
+B = c(0, 0, 0, 0, 0, 0, 0, 1)
+
+# contrast the marginal means
+# infer argument returns a confidence interval and p value if
+# both are set to TRUE.
+contrast(marginal_means, 
+     method = list("Unadjusted effect size" = B-A),
+     infer = c(TRUE, TRUE))
+```
+
+
+This results in a statistically reliable group
+effect size of 2.7 logits. Given that the group model suggests a starting
+place of only around 3% (found by converting logits to percentage `plogis(-3.44)`),
+this indicates a gain of about 35 percentage points on average
+can be attributed to the level and slope changes. We can estimate change in percentage points
+by adding the intercept, the baseline slope times an average number of baseline sessions,
+and the predicted change, converting to the predicted percent correct, and then subtracting
+the percent correct at baseline plus the baseline change:
+`plogis(-3.44 + 0.07*5 + 2.68)-plogis(-3.44 + 0.07*5)`. However, we're not aware of a
+straightforward method of estimating individual effect sizes and confidence intervals
+using the frequentist approach. 
+
+
+## Bayesian Mixed effects models
+
+
+Bayesian mixed-effects models can be used in the same fashion as model 2 above to obtain both group and individual effect size estimates. First, a group-level model is estimated. 
+
+
+```{r}
+mod3 <-
+ brm(
+   # population level effects
+   response ~ 0 + Intercept + baseline_slope + level_change + slope_change +
+   # group level effects
+     (1 + baseline_slope + level_change + slope_change | participant) +
+     (1|item),
+             data = df_glmm,
+             family = bernoulli(), # special case of binomial with n=1 trials
+             iter = 3000, # number of draws per chain
+             warmup = 1000, # number of draws to toss on "burn in"
+             chains = 4, # total number of chains
+             seed = 42, # set a seed
+             prior = c( # prior distributions
+               prior(normal(-1, 2), class = b, coef = Intercept),
+               prior(normal(0, 2.5), class = b)
+             ),
+             # extra arguments, see rmd file
+             cores = 4,
+             file = here("output", "group_brm"),
+             file_refit = "on_change")
+```
+
+
+We can check several aspects of model fit and convergence. 
+
+
+1. Traceplots: Note that there are four lines within each plot, representing all the samples from each Markov Chain Monte Carlo  (MCMC) simulation from the above model. There should be no noticeable variations in the patterns of the estimates across each model. Visual inspection of convergence is achieved by affirming that the MCMC estimates were consistently sampled from a range of values. Graphically, this is presented by the horizontal structure in each trace plot.  For example, all estimates of model 3s intercept, `b_Intercept` fall within a range of about -4 and -2.5 logits.  “Spikes” observed in traceplots are normal, as can be seen in the `participant_slope` plot. These spikes represent estimates at the tail end of a probability distribution. Traceplots with positive or negative slopes or sinusoidal wave shapes do not reflect convergence. 
+
+
+```{r fig.height = 5, fig.width = 7}
+brms::mcmc_plot(mod3, type = "trace")
+```
+
+
+2. Check that the model can successfully re-estimate the data. In this case, we conducted posterior predictive checks on three statistics that can be estimated from the model. The posterior_predict function creates n number of posterior distributions, where n is the total number of post warmup iterations for one MCMC chain. We label these distributions `yrep` in the code below.
+
+Then, we estimate posterior predictive p-values for the mean, standard deviation, and kurtosis of the n number of posteriors included in yrep. We note, that this is only one type of method of posterior checking, and was chosen because graphical posterior predictive checks of the predicted number outcome estimates from logistic regression models involving a large number of 0s can be misleading.
+
+
+```{r}
+y = mod3$data$response
+yrep = posterior_predict(mod3)
+mean_ppc = mean(apply(yrep, 1, mean) > mean(y))
+sd_ppc = mean(apply(yrep, 1, sd) > sd(y))
+kurtosis_ppc = mean(apply(yrep, 1, e1071::kurtosis) > e1071::kurtosis(y))
+
+print(c(mean_ppc, sd_ppc, kurtosis_ppc))
+```
+
+
+`mean_ppc`, `sd_ppc`, and `kurtosis_ppc` represent the proportion of mean, standard deviation, and kurtosis estimates less than the observed estimates of these parameters. The p-value is the proportion of posterior samples with greater prediction error than the actual data. Low p-values mean worse model fit than expected if the model were correct. Values near 0.5 are ideal.
+
+
+3. Rhat statistic should be < 1.05, ideally < 1.01
+
+The rhat stastistic represents the potential scale reduction factor across the split chains, the case of this model across the four chains. A value of 1.0 represents perfect convergence and estimates between 1 and 1.05, and ideally between 1 and 1.01 represent adequate convergence. Model fitting should be reevaluated with rhat statistics greater than 1.05.
+
+
+```{r}
+max(rhat(mod3))
+```
+
+
+We can preview the model results using `summary()` again. Notably, the model estimates are largely similar to the frequentist model. 
+
+
+```{r}
+summary(mod3)
+```
+
+
+Finally, we can calculate effect sizes from the model for each individual
+
+To do this efficiently, we wrote a function which takes arguments for the model object,
+and an argument we called "adjust" that can be TRUE if we would like to extrapolate the
+baseline slope through the end of treatment and FALSE otherwise. The default is FALSE.
+
+The function works be selecting rows for each participant and item in the data
+and estimating the posterior distribution for the values in each row.
+
+Then the data is transformed and the posterior distribution
+at the beginning of treatment (or at the end of treatment without the 
+level change and slope change parameters) is subtracted from the posterior
+distribution at the end of treatment. 
+
+The resulting posterior distribution characterized the magnitude of change, 
+the mean or median can be used as a point estimate and the middle 95%
+of the distribution is the 95% credible interval. 
+
+
+```{r}
+glmmES = function(fit, adjust = FALSE){
+  
+  # start with the data that went into the model,
+  # for each participant and phase (here we just used level_change
+  # because they are equivalent) make a new variable called last_session
+  # which is the highest value of the baseline slope coefficient
+  # then filter for only rows where the baseline slope is 
+  # equal to the highest value in the phase (in other words
+  # this selects the last baseline and last treatment session).
+  # Remove the response column, reduce the data frame to only the
+  # unique rows
+  data = fit$data %>%
+      group_by(level_change, participant) %>% 
+      mutate(last_session = max(baseline_slope)) %>%
+      filter(baseline_slope == last_session) %>%
+      select(-response) %>%
+      distinct() 
+  # If adjust is TRUE, then for each participant, 
+  # set the baseline slope to always equal the highest value
+  # of baseline slope. 
+  # in other words, we end up with a row where baseline slope
+  # represents the last treatment session, but level and slope
+  # change are still zero.
+  if(adjust){
+   data = data %>%
+      group_by(participant) %>%
+      mutate(baseline_slope = max(baseline_slope))
+  }
+
+  # calculate an effect size in logits or log-odds
+  # start with the data frame we just created and add
+  # model draws from the linear/link-level predictor
+  # change timepoint to entry if level change is 
+  # 0 and exit if 1. Select only the needed columns
+  # and take the data from long to wide. using pivot_wider
+  # Then subtract the value for the draw for entry from 
+  # the draw for exit. 
+  # then for each participant, calculate the point
+  # estimate and interval using point_interval
+  # the last line just adds a column indicating this effect size is in logits
+  linepred = data %>%
+    add_linpred_draws(fit) %>%
+    ungroup() %>%
+    mutate(timepoint = ifelse(level_change == 0, "entry", "exit")) %>%
+    select(timepoint, item, .draw, .linpred, participant) %>%
+    pivot_wider(names_from = "timepoint", values_from = .linpred) %>%
+    mutate(ES = exit-entry) %>%
+    group_by(participant) %>%
+    point_interval(ES) %>%
+    mutate(unit = "logit")
+
+  # This block does the same thing, except using the expectation of the
+  # posterior (i.e., in percent correct terms) 
+  epred = data %>%
+    add_epred_draws(fit) %>%
+    ungroup() %>%
+    mutate(timepoint = ifelse(level_change == 0, "entry", "exit")) %>%
+    select(timepoint, .draw, item, .epred, participant) %>%
+    pivot_wider(names_from = "timepoint", values_from = .epred) %>%
+    mutate(ES = exit-entry) %>% 
+    group_by(participant) %>%
+    point_interval(ES) %>%
+    mutate(unit = "percent")
+  
+  return(bind_rows(linepred, epred))
+}
+```
+
+
+Here's how we might use the function, adjusting for baseline slope
+
+
+```{r}
+bayesian_es = glmmES(mod3, adjust = TRUE)
+```
+
+
+Examine the results for logits
+
+
+```{r}
+head(bayesian_es %>% filter(unit == "logit"), 20) %>% kable(format = "latex", booktabs = TRUE) %>%
+  kable_styling(position = "center")
+```
+
+```{r, include = FALSE}
+# save the data for the manuscript
+out = bayesian_es %>% filter(unit == "logit")
+saveRDS(out, file = here("output", "bayesian_es.rds"))
+```
+
+
+Examine the results for percent
+
+
+```{r}
+head(bayesian_es %>% filter(unit == "percent"), 20) %>% kable(format = "latex", booktabs = TRUE) %>%
+  kable_styling(position = "center")
+```
+
+
+To convert to odds ratios, exponentiate the logit effect sizes. To convert to number of
+items correct, multiply the percent gain by the number of items treated 
+
+
+```{r}
+sessionInfo()
+```
+

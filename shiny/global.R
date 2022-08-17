@@ -14,8 +14,8 @@ set_shiny_plot_height <- function(session, output_width_name){
   }
 }
 
-#data = read.csv(here("data.csv")) %>%
-data = read.csv(here("shiny", "data.csv")) %>%
+data = read.csv(here("data.csv")) %>%
+#data = read.csv(here("shiny", "data.csv")) %>%
   filter(phase == "baseline" | phase == "treatment") %>%
   mutate(
     spt2017 = ifelse(spt2017 != "fu", spt2017, NA),
@@ -28,10 +28,12 @@ formatround = function(b){
   return(tmp)
 }
 
-es_raw = read.csv(here("shiny", "effect-sizes.csv"))
+#es_raw = read.csv(here("shiny", "effect-sizes.csv"))
+es_raw = read.csv(here("effect-sizes.csv"))
+
   
-#es = read.csv(here("effect-sizes.csv")) %>%
-es = read.csv(here("shiny", "effect-sizes.csv")) %>%
+es = read.csv(here("effect-sizes.csv")) %>%
+#es = read.csv(here("shiny", "effect-sizes.csv")) %>%
   mutate(
     rankSMD = rank(SMD, ties = "max", na.last = FALSE),
     rankPMG = rank(PMG, ties = "max"),
@@ -225,14 +227,16 @@ get_plotDat <- function(v, number) {
       yl = "Percent Accuracy"
       
       plot_mapping = aes(x = session,
-                         y = accuracy,
-                         fill = phase)
+                         y = accuracy#,
+                         #fill = phase
+                         )
       limits = c(0, 1)
     } else {
       yl = "Number correct"
       plot_mapping = aes(x = session,
-                         y = count,
-                         fill = phase)
+                         y = count#,
+                         #fill = phase
+                         )
       limits = c(0, 20)
       
     }
@@ -252,7 +256,7 @@ get_plotDat <- function(v, number) {
       plot_mapping = aes(
         x = session,
         y = accuracy,
-        fill = phase,
+        #fill = phase,
         shape = phoneme
       )
       
@@ -264,7 +268,7 @@ get_plotDat <- function(v, number) {
       plot_mapping = aes(
         x = session,
         y = count,
-        fill = phase,
+        #fill = phase,
         shape = phoneme
       )
       limits = c(0, 10)
@@ -311,11 +315,14 @@ sced_plot <- function(v, cap = FALSE, all = FALSE) {
     group_by(phase) %>%
     summarize(li = min(session) - 1)
   
+  print(unique(plotdat$spt2017))
+  
   p = plotdat %>%
     ggplot(mapping = plot_mapping) +
     geom_line(alpha = 0.3) +
-    geom_point(size = 3.0, alpha = 0.8, aes(color = spt2017)) +
+    geom_point(size = 3.5, alpha = 1, aes(fill = spt2017), pch=21, color="black") +
     geom_vline(data = vert_lines, aes(xintercept = li), linetype = "dashed") +
+    scale_fill_manual(values = c("#0d6efd", "grey90")) +
     scale_x_continuous(
       breaks = seq(1, last_session, 4),
       labels = seq(1, last_session, 4),
@@ -339,3 +346,16 @@ sced_plot <- function(v, cap = FALSE, all = FALSE) {
   
   return(p)
 }
+
+
+
+# Choices
+
+vals = paste("P", 1:20, sep = "")
+labs = paste("Participant", 1:20, sep = " ")
+names(vals) = labs
+
+
+
+
+

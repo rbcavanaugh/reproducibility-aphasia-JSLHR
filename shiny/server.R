@@ -68,7 +68,7 @@ shinyServer(function(input, output, session) {
       title = "Reproducibility in small-N treatment research in aphasia and related disorders: a tutorial",
       includeMarkdown("details.md"),
       easyClose = TRUE,
-      size = "l", 
+      size = "xl", 
       footer = modalButton("Get Started"),
     )
     
@@ -155,14 +155,15 @@ shinyServer(function(input, output, session) {
         glmm_logit = col_glmm_logit,
         glmm_percent = col_glmm_percent
       ) %>% mutate(
-        
+        smd = ifelse(!is.finite(smd), NA, smd),
+        itemType = factor(itemType, levels = c("tx", "gx"))
       )
       
       glimpse(dat)
       p3 = ggpairs(dat,
                    columns = 4:8,
                    mapping = aes(fill = itemType, color = itemType),
-                   columnLabels = c("d[BR]", "PMG", "T~au-U", "GLMM~Logit", "GLMM~Percent"),
+                   columnLabels = c("d[BR]", "PMG", '"Tau U"', '"GLMM Logit"', '"GLMM Percent"'),
                    labeller = "label_parsed",
                    diag = list(discrete="barDiag",
                                continuous = wrap("densityDiag", alpha=0.5, color = "grey50" )),
@@ -185,11 +186,11 @@ shinyServer(function(input, output, session) {
       }
       
       # fix the x and y axis scales in each scatterplot and density plot
-      p3[2,1] = p3[2,1] + scale_x_continuous(breaks = seq(0, 35, 5))
-      p3[3,1] = p3[3,1] + scale_x_continuous(breaks = seq(0, 35, 5))
-      p3[4,1] = p3[4,1] + scale_x_continuous(breaks = seq(0, 35, 5)) +
+      p3[2,1] = p3[2,1] + scale_x_continuous(breaks = seq(0, 40, 5))
+      p3[3,1] = p3[3,1] + scale_x_continuous(breaks = seq(0, 40, 5))
+      p3[4,1] = p3[4,1] + scale_x_continuous(breaks = seq(0, 40, 5)) +
         scale_y_continuous(breaks = seq(0,10,2.5), limits = c(0,10))
-      p3[5,1] = p3[5,1] + scale_x_continuous(breaks = seq(0, 35, 5)) +
+      p3[5,1] = p3[5,1] + scale_x_continuous(breaks = seq(0, 40, 5)) +
         scale_y_continuous(breaks = seq(0, 1, 0.25), limits = c(0, 1))
       
       p3[3,2] = p3[3,2] + scale_x_continuous(labels = dropLeadingZero, breaks = seq(0, 1, 0.25))

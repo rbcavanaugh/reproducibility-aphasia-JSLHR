@@ -1,0 +1,36 @@
+Package: reproducibility-aphasia-JSLHR
+Title: Reproducibility in Small-N Treatment Research: a Tutorial Through the Lens of Aphasiology
+Authors@R: 
+    c(
+    person("Robert",    "Cavanaugh", , email = "rob.cavanaugh@pitt.edu", role = c("aut", "cre")),
+    person("Yina",      "Quique", "M", role = "aut"),
+    person("Alexander", "Swiderski", "M", role = "aut"),
+    person("Lydia",     "Kallhoff", "M", role = "aut"),
+    person("Lauren",    "Terhorst", "M", role = "aut"),
+    person("Julie",     "Wambaugh", "M", role = "aut"),
+    person("William",   "Hula", "D", role = "aut"),
+    person("William",   "Evans", "S", role = "aut")
+    )
+Description: Data and annotated code for the above-titled manuscript.
+License: CC BY 4.0
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.1
+Depends: 
+    tidyverse
+Imports: 
+    brms,
+    emmeans,
+    flextable,
+    GGally,
+    ggdist,
+    here,
+    insight,
+    janitor,
+    lme4,
+    officer,
+    rmarkdown,
+    SingleCaseES,
+    tidybayes
+Remotes:
+    github::nicolash2/ggbrace
