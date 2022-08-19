@@ -1,4 +1,4 @@
-# Reproducibility in small-N treatment research: a tutorial through the lens of aphasiology
+# Reproducibility in small-N treatment research: a tutorial using examples from aphasiology
 
 **This repository contains data, analytical code, supplemental materials, and a pre-print for the above titled manuscript currently under review**
 

@@ -27,8 +27,8 @@ shinyUI(page_navbar(title = "Reproducibility in small-N treatment research: a tu
   # tags$head(
   #   tags$style(HTML(""))
   #   ),
-  #shiny::includeCSS(here("shiny", "www", "style.css")),
-  shiny::includeCSS(here("www", "style.css")),
+  shiny::includeCSS(here("shiny", "www", "style.css")),
+  #shiny::includeCSS(here("www", "style.css")),
   
     useShinyjs(),
     sidebarLayout(

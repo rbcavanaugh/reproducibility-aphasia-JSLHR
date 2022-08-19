@@ -6,10 +6,10 @@ library(here)
 # And figure 3.
 
 # S1. Supplemental
-rmarkdown::render(here("scripts", "S1-reproducible-effect-sizes.Rmd"))
+rmarkdown::render(here("scripts", "S1-reproducible-effect-sizes.Rmd"), clean = TRUE, envir = new.env())
 
 # S2. Supplemental
-rmarkdown::render(here("scripts", "S1-reproducible-effect-sizes.Rmd"))
+rmarkdown::render(here("scripts", "S2-reproducible-effect-sizes.Rmd"), clean = TRUE, envir = new.env())
 
 # Render Quarto manuscript
 # Can't run rmarkdown::render() the same way with quarto documents
@@ -18,4 +18,11 @@ rmarkdown::render(here("scripts", "S1-reproducible-effect-sizes.Rmd"))
 # to render the document from an R-script, we can use the 'system()' command
 # which runs a string in the terminal.
 
-system("quarto render manuscript/reproducibility-replication-manuscript-Qmd-REV.qmd")
+system("quarto render manuscript/reproducibility-revision-quarto.qmd")
+
+system("quarto render manuscript/reproducibility-revision-quarto-preprint.qmd")
+
+
+# Clear and Restart the session
+rstudioapi::restartSession()
+   

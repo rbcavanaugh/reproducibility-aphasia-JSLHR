@@ -14,8 +14,8 @@ set_shiny_plot_height <- function(session, output_width_name){
   }
 }
 
-data = read.csv(here("data.csv")) %>%
-#data = read.csv(here("shiny", "data.csv")) %>%
+#data = read.csv(here("data.csv")) %>%
+data = read.csv(here("shiny", "data.csv")) %>%
   filter(phase == "baseline" | phase == "treatment") %>%
   mutate(
     spt2017 = ifelse(spt2017 != "fu", spt2017, NA),
@@ -28,12 +28,12 @@ formatround = function(b){
   return(tmp)
 }
 
-#es_raw = read.csv(here("shiny", "effect-sizes.csv"))
-es_raw = read.csv(here("effect-sizes.csv"))
+es_raw = read.csv(here("shiny", "effect-sizes.csv"))
+#es_raw = read.csv(here("effect-sizes.csv"))
 
   
-es = read.csv(here("effect-sizes.csv")) %>%
-#es = read.csv(here("shiny", "effect-sizes.csv")) %>%
+#es = read.csv(here("effect-sizes.csv")) %>%
+es = read.csv(here("shiny", "effect-sizes.csv")) %>%
   mutate(
     rankSMD = rank(SMD, ties = "max", na.last = FALSE),
     rankPMG = rank(PMG, ties = "max"),

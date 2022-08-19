@@ -1,6 +1,6 @@
 ---
 title: "S2. Supplemental Matrials Part 2."
-subtitle: "Reproducibility in small-N treatment research: a tutorial through the lens of aphasiology"
+subtitle: "Reproducibility in small-N treatment research: a tutorial using examples from aphasiology"
 output : pdf_document
 header-includes:
     - \usepackage{setspace}
@@ -757,8 +757,12 @@ es = smd %>%
   left_join(bglmm_adjust, by = c("participant", "itemType", "condition")) %>%
   mutate(itemType = factor(itemType, levels = c("tx", "gx")))
 
+# Write files for interactive shiny app
  write.csv(es, here("shiny", "effect-sizes.csv"), row.names = FALSE)
  write.csv(df, here("shiny", "data.csv"), row.names = FALSE)
+# Write files for deployed shiny app
+ write.csv(es, here("shiny", "shiny", "effect-sizes.csv"), row.names = FALSE)
+ write.csv(df, here("shiny", "shiny", "data.csv"), row.names = FALSE)
 ```
 
 

@@ -1,0 +1,17 @@
+﻿Effect size measure,Strengths,Weaknesses
+Within-case Standardized Mean (dBR),"Historically, most common method in aphasia & related disorders","Influenced by experimental design features (e.g.,  item set-size, baseline/treatment length)"
+,Easy to implement,No clear solution to cases of low baseline variability
+,,Interpretation depends on benchmark study
+,,Lacks a measure of uncertainty
+Proportion of Potential Maximal Gain (PMG),Accommodates different item set sizes when comparing across individuals,Confounded by disorder severity if baseline performance is associated with disorder severity
+,Easy to implement,Can obscure differences in absolute change scores
+,,Lacks a measure of uncertainty
+Tau-U,Non-parametric and distribution free,Does not fully characterize the magnitude of change
+,Option to adjust for baseline trends,Influenced by ratio of baseline/treatment observations
+,Easy to implement,"Lack of easily interpretable scaling; not bounded between [-1, 1]"
+,,Tau-UA VS. B – TREND-A lacks a measure of uncertainty
+Generalized linear mixed-effects models (GLMM) ,Able to adjust for baseline trends,Complex to implement
+,"Effect size available in multiple units of measure (e.g., logits, odds-ratio, percent, items gained) each with clear interpretation",Model convergence challenges are common with frequentist estimation
+,Pools item-level and/or participant-level data to produce more generalizable estimates,Confidence/Credible interval width dependent on sample size
+,Includes confidence/credible interval ,
+,Can estimate group and individual effect sizes from a single model (Bayesian),

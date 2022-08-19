@@ -1,6 +1,6 @@
 ---
 title: "S1. Supplemental Materials Part 1"
-subtitle: "Reproducibility in small-N treatment research: a tutorial through the lens of aphasiology"
+subtitle: "Reproducibility in small-N treatment research: a tutorial using examples from aphasiology"
 output: pdf_document
 header-includes:
     - \usepackage{setspace}

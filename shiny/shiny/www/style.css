@@ -1,0 +1,81 @@
+/*.btn-default:not(:disabled):not(.disabled):active, .btn-default.active:not(:disabled):not(.disabled), .show>.btn-default.dropdown-toggle, .in>.btn-default.dropdown-toggle {
+    color: #000;
+    background-color: #b2b9bf;
+    border-color: #bac2cb;
+}*/
+
+.btn-info {
+  border-color: #000;
+}
+
+.table th, .table td {
+    padding: .30rem;
+    vertical-align: top;
+    border-top: 1px solid #dee2e6;
+}
+
+h5 {
+  margin-top:0;
+  padding-top:0;
+  margin-bottom: 10px;
+  font-size:1rem;
+}
+
+.form-group {
+  margin-bottom: .4rem;
+}
+
+.control-label{
+  font-weight: 400;
+  /*font-style: italic;*/
+  font-size: 0.9rem;
+}
+
+#tau-label{
+  margin-bottom: 0.2rem;
+}
+
+.navbar-brand{
+  color:black!important;
+}
+
+.navbar.navbar-default {
+  background-color:rgba(0,0,0,0.03)!important;
+}
+
+.navbar {
+  padding-top: 0; padding-bottom: 0
+}
+
+.navbar:not(.fixed-bottom):not(.navbar-fixed-bottom):not(.navbar-fixed-bottom) {
+  margin-bottom: 5px;
+}
+
+#condition1 .control-label{
+  float:left;margin-right:10px;
+}
+
+#condition2 .control-label{
+  float:left;margin-right:10px;
+}
+
+#itemType1 .control-label{
+  float:left;margin-right:10px;
+}
+  
+#itemType2 .control-label{
+  float:left;margin-right:10px;
+}
+  
+.tabbable > .nav > li > a {
+  width: 36vw;text-align:center;
+}
+
+
+
+
+
+
+
+
+
