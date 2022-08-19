@@ -111,7 +111,7 @@ In the following sections, we will review the conceptual definitions of effect s
 
 @wambaugh2017effects reported the effects of Sound Production Treatment for apraxia of speech and aphasia for 20 individuals in a multiple-baseline design under two experimental conditions: blocked and random practice. Sound Production Treatment uses "therapeutic techniques of modeling and repetition, contrastive practice, orthographic cueing, integral stimulation, and articulatory cueing" in a "response-contingent hierarchy" to target phoneme production (p. 1744). The expectation is that repeated practice based on principles of motor learning will improve the production of target phonemes in the treated context, and (ideally) generalize to the production of those phonemes in words that are not explicitly treated.
 
-In Wambaugh et al., (2017), participants received treatment on two lists, one in each experimental condition (random and blocked). Each list contained treated items and untreated generalization items for two target phonemes. Items consisted of a single word or occasionally a 2-3 word phrase. For 16/20 participants, treated lists contained 20 items (10 for each phoneme), and untreated lists contained 10 items (5 for each phoneme). For these participants, accuracy was determined based on the production of the target phoneme within the item. For 4/20 participants, treated lists contained 10 items (5 for each phoneme), and untreated lists contained 6 items (3 for each phoneme). For these participants, accuracy was determined based on the production of the entire item (see Wambaugh et al., 2016 for details on these four participants). All items were probed in a multiple-baseline crossover design with at least 5 baseline observations. For participants with 20-item treatment lists, accuracy was determined based on the production of the target phoneme within the item. For participants with 10-item treatment lists, the entire item was scored (see Wambaugh et al., 2016 for details on these four participants). While Wambaugh et al., (2017) aimed to compare the effects of randomized versus blocked practice on treatment outcomes, this tutorial will focus on calculating the following effect sizes: within-case standardized mean difference [@beesonEvaluatingSinglesubjectTreatment2006], proportion of maximal gain [@lambonralphPredictingOutcomeAnomia2010], Tau-U [@parkerCombiningNonoverlapTrend2011], and effect sizes based on frequentist and Bayesian mixed-effects models \[e.g., @evansPlayingBEARSBalancing2021.
+In Wambaugh et al., (2017), participants received treatment on two lists, one in each experimental condition (random and blocked). Each list contained treated items and untreated generalization items for two target phonemes. Items consisted of a single word or occasionally a 2-3 word phrase. For 16/20 participants, treated lists contained 20 items (10 for each phoneme), and untreated lists contained 10 items (5 for each phoneme). For these participants, accuracy was determined based on the production of the target phoneme within the item. For 4/20 participants, treated lists contained 10 items (5 for each phoneme), and untreated lists contained 6 items (3 for each phoneme). For these participants, accuracy was determined based on the production of the entire item (see Wambaugh et al., 2016 for details on these four participants). All items were probed in a multiple-baseline crossover design with at least 5 baseline observations. For participants with 20-item treatment lists, accuracy was determined based on the production of the target phoneme within the item. For participants with 10-item treatment lists, the entire item was scored (see Wambaugh et al., 2016 for details on these four participants). While Wambaugh et al., (2017) aimed to compare the effects of randomized versus blocked practice on treatment outcomes, this tutorial will focus on calculating the following effect sizes: within-case standardized mean difference [@beesonEvaluatingSinglesubjectTreatment2006], proportion of maximal gain [@lambonralphPredictingOutcomeAnomia2010], Tau-U [@parkerCombiningNonoverlapTrend2011], and effect sizes based on frequentist and Bayesian mixed-effects models [e.g., @evansPlayingBEARSBalancing2021.]
 
 A reproducible analysis of data from Wambaugh et al., (2017) in R begins by loading necessary packages and setting a seed for reproducibility.[^1] The data are stored in separate probe files for each participant and session, as small-N data are typically collected. By programmatically reading and combining raw probe data from each session, we avoid modifying the data by hand and minimize the chance for errors when combining the data manually.[^2]
 
@@ -173,7 +173,10 @@ cols <- tibble(
   )
 ) 
 
-t1 <- flextable(cols, cwidth = c(2,3))
+set_flextable_defaults(font.family = "Times New Roman")
+
+t1 <- flextable(cols, cwidth = c(2,3)) %>%
+  set_caption("Table 1. Variables and descriptions for study data from Wambaugh et al., (2017)")
 doc <- read_docx(here("manuscript", "templates-data", "template.docx"))
 doc <- body_add_flextable(doc, value = t1)
 fileout <- here("manuscript", "tables-figures", "table1.docx") # uncomment to write in your working directory
@@ -201,7 +204,9 @@ md_table1
 # a JSLHR compliant formatted word doc
 
 # create a flextable object using the first five rows of data
-t2 <- flextable(head(df, 5), cwidth = 0.9)
+t2 <- flextable(head(df, 5), cwidth = 0.9) %>%
+  set_caption("Table 2. The first 5 rows of data") %>%
+  autofit()
 
 # read in a blank template with the correct formatting
 doc <- read_docx(here("manuscript", "templates-data", "template_lnd.docx"))
@@ -211,9 +216,6 @@ doc <- body_add_flextable(doc, value = t2)
 fileout <- here("manuscript", "tables-figures", "table2.docx") # uncomment to write in your working directory
 print(doc, target = fileout)
 
-head(df, 5) %>% insight::print_md(
-  caption = "Table 1. The first 5 rows of data"
-)
 ```
 
 In the following sections, we demonstrate how to calculate each effect size for a single case participant (participant 10, blocked condition) from Wambaugh et al., (2017). Participant 10's performance on the blocked condition is shown in Figure 1. R code for calculating effect sizes for all participants, item-types, and conditions in the study is available in the supplemental material S2. We can subset and summarize performance data for participant 10 as follows.
