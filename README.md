@@ -19,7 +19,7 @@ Corresponding Author:
 Robert Cavanaugh M.S. CCC-SLP  
 rob.cavanaugh [@] pitt.edu
 
-Note: Shiny app is located here: https://rb-cavanaugh.shinyapps.io/reproducibile-ES/
+Note: Shiny app is located here: https://rb-cavanaugh.shinyapps.io/reproducible-small-N/
 
 ## Directory organization
 
